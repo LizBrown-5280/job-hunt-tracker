@@ -147,5 +147,27 @@ export const useRecruitersStore = defineStore('recruiters', {
         this.resetDraft();
       }
     },
+
+    reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        if (item.companyId !== fromCompanyId) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          companyId: toCompanyId,
+          updatedAt: now,
+        };
+      });
+
+      if (changed) {
+        persistRecruiters(this.items);
+      }
+    },
   },
 });

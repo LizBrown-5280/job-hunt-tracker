@@ -155,26 +155,117 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
   ).length;
   const linkedTotal = linkedPositions + linkedRecruiters + linkedApplications;
 
-  if (linkedTotal > 0) {
-    const parts: string[] = [];
-    if (linkedPositions > 0) {
-      parts.push(`${linkedPositions} position${linkedPositions === 1 ? '' : 's'}`);
-    }
-    if (linkedRecruiters > 0) {
-      parts.push(`${linkedRecruiters} recruiter${linkedRecruiters === 1 ? '' : 's'}`);
-    }
-    if (linkedApplications > 0) {
-      parts.push(`${linkedApplications} application${linkedApplications === 1 ? '' : 's'}`);
-    }
+  if (linkedTotal === 0) {
+    store.remove(companyId);
+    return;
+  }
 
+  const parts: string[] = [];
+  if (linkedPositions > 0) {
+    parts.push(`${linkedPositions} position${linkedPositions === 1 ? '' : 's'}`);
+  }
+  if (linkedRecruiters > 0) {
+    parts.push(`${linkedRecruiters} recruiter${linkedRecruiters === 1 ? '' : 's'}`);
+  }
+  if (linkedApplications > 0) {
+    parts.push(`${linkedApplications} application${linkedApplications === 1 ? '' : 's'}`);
+  }
+
+  const resolution = await askCompanyDeleteResolution(companyName, parts.join(', '));
+  if (!resolution) {
+    return;
+  }
+
+  if (resolution === 'clear') {
+    positionsStore.reassignCompanyReferences(companyId, null);
+    recruitersStore.reassignCompanyReferences(companyId, null);
+    await applicationsStore.reassignCompanyReferences(companyId, null);
+    store.remove(companyId);
     $q.notify({
-      type: 'warning',
-      message: `Cannot delete ${companyName}. It is linked to ${parts.join(', ')}.`,
+      type: 'positive',
+      message: `Company deleted and ${linkedTotal} linked record${linkedTotal === 1 ? '' : 's'} updated.`,
     });
     return;
   }
 
+  const targetCompanyId = await askCompanyReassignTarget(companyId);
+  if (targetCompanyId == null) {
+    return;
+  }
+
+  positionsStore.reassignCompanyReferences(companyId, targetCompanyId);
+  recruitersStore.reassignCompanyReferences(companyId, targetCompanyId);
+  await applicationsStore.reassignCompanyReferences(companyId, targetCompanyId);
   store.remove(companyId);
+  $q.notify({
+    type: 'positive',
+    message: `Company deleted and links reassigned to ${getCompanyName(targetCompanyId)}.`,
+  });
+}
+
+function getCompanyName(id: number) {
+  return store.items.find((item) => item.id === id)?.name ?? 'selected company';
+}
+
+function askCompanyDeleteResolution(companyName: string, linkedSummary: string) {
+  return new Promise<'reassign' | 'clear' | null>((resolve) => {
+    $q.dialog({
+      title: 'Linked records found',
+      message: `${companyName} is linked to ${linkedSummary}. Choose how to continue.`,
+      options: {
+        type: 'radio',
+        model: 'reassign',
+        items: [
+          { label: 'Reassign links, then delete company', value: 'reassign' },
+          { label: 'Clear company links, then delete company', value: 'clear' },
+        ],
+      },
+      ok: { label: 'Continue', color: 'primary' },
+      cancel: { label: 'Cancel', flat: true },
+      persistent: true,
+    })
+      .onOk((value) => resolve((value as 'reassign' | 'clear') ?? 'reassign'))
+      .onCancel(() => resolve(null))
+      .onDismiss(() => resolve(null));
+  });
+}
+
+function askCompanyReassignTarget(currentCompanyId: number) {
+  const candidates = store.items
+    .filter((item) => item.id !== currentCompanyId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (candidates.length === 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'No other company available for reassignment. Choose clear links instead.',
+    });
+    return Promise.resolve<number | null>(null);
+  }
+
+  return new Promise<number | null>((resolve) => {
+    $q.dialog({
+      title: 'Reassign linked records',
+      message: 'Select a company to receive linked records.',
+      options: {
+        type: 'radio',
+        model: String(candidates[0]?.id ?? ''),
+        items: candidates.map((item) => ({
+          label: item.name,
+          value: String(item.id),
+        })),
+      },
+      ok: { label: 'Reassign and delete', color: 'primary' },
+      cancel: { label: 'Cancel', flat: true },
+      persistent: true,
+    })
+      .onOk((value) => {
+        const parsed = Number(value);
+        resolve(Number.isFinite(parsed) ? parsed : null);
+      })
+      .onCancel(() => resolve(null))
+      .onDismiss(() => resolve(null));
+  });
 }
 
 function formatDate(value: string) {

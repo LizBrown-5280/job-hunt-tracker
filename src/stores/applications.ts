@@ -571,6 +571,78 @@ export const useApplicationsStore = defineStore('applications', {
       });
     },
 
+    async reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        const currentCompanyId = item.companyId ?? null;
+        if (currentCompanyId !== fromCompanyId) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          companyId: toCompanyId,
+          updatedAt: now,
+        };
+      });
+
+      if (!changed) {
+        return;
+      }
+
+      await db.transaction('rw', db.applications, async () => {
+        for (const item of this.items) {
+          if (item.id == null) {
+            continue;
+          }
+
+          await db.applications.update(item.id, {
+            companyId: item.companyId ?? null,
+            updatedAt: item.updatedAt,
+          });
+        }
+      });
+    },
+
+    async reassignPositionReferences(fromPositionId: number, toPositionId: number | null) {
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        const currentPositionId = item.positionId ?? null;
+        if (currentPositionId !== fromPositionId) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          positionId: toPositionId,
+          updatedAt: now,
+        };
+      });
+
+      if (!changed) {
+        return;
+      }
+
+      await db.transaction('rw', db.applications, async () => {
+        for (const item of this.items) {
+          if (item.id == null) {
+            continue;
+          }
+
+          await db.applications.update(item.id, {
+            positionId: item.positionId ?? null,
+            updatedAt: item.updatedAt,
+          });
+        }
+      });
+    },
+
     async exportBackup() {
       const applications = await db.applications.toArray();
       const exportedAt = new Date().toISOString();

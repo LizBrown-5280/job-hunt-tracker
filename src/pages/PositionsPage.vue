@@ -198,15 +198,102 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
     (item) => item.positionId === positionId,
   ).length;
 
-  if (linkedApplications > 0) {
+  if (linkedApplications === 0) {
+    store.remove(positionId);
+    return;
+  }
+
+  const resolution = await askPositionDeleteResolution(positionTitle, linkedApplications);
+  if (!resolution) {
+    return;
+  }
+
+  if (resolution === 'clear') {
+    await applicationsStore.reassignPositionReferences(positionId, null);
+    store.remove(positionId);
     $q.notify({
-      type: 'warning',
-      message: `Cannot delete ${positionTitle}. It is linked to ${linkedApplications} application${linkedApplications === 1 ? '' : 's'}.`,
+      type: 'positive',
+      message: `Position deleted and ${linkedApplications} linked application${linkedApplications === 1 ? '' : 's'} updated.`,
     });
     return;
   }
 
+  const targetPositionId = await askPositionReassignTarget(positionId);
+  if (targetPositionId == null) {
+    return;
+  }
+
+  await applicationsStore.reassignPositionReferences(positionId, targetPositionId);
   store.remove(positionId);
+  $q.notify({
+    type: 'positive',
+    message: `Position deleted and links reassigned to ${getPositionTitle(targetPositionId)}.`,
+  });
+}
+
+function getPositionTitle(id: number) {
+  return store.items.find((item) => item.id === id)?.title ?? 'selected position';
+}
+
+function askPositionDeleteResolution(positionTitle: string, linkedApplications: number) {
+  return new Promise<'reassign' | 'clear' | null>((resolve) => {
+    $q.dialog({
+      title: 'Linked records found',
+      message: `${positionTitle} is linked to ${linkedApplications} application${linkedApplications === 1 ? '' : 's'}. Choose how to continue.`,
+      options: {
+        type: 'radio',
+        model: 'reassign',
+        items: [
+          { label: 'Reassign linked applications, then delete position', value: 'reassign' },
+          { label: 'Clear position links, then delete position', value: 'clear' },
+        ],
+      },
+      ok: { label: 'Continue', color: 'primary' },
+      cancel: { label: 'Cancel', flat: true },
+      persistent: true,
+    })
+      .onOk((value) => resolve((value as 'reassign' | 'clear') ?? 'reassign'))
+      .onCancel(() => resolve(null))
+      .onDismiss(() => resolve(null));
+  });
+}
+
+function askPositionReassignTarget(currentPositionId: number) {
+  const candidates = store.items
+    .filter((item) => item.id !== currentPositionId)
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  if (candidates.length === 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'No other position available for reassignment. Choose clear links instead.',
+    });
+    return Promise.resolve<number | null>(null);
+  }
+
+  return new Promise<number | null>((resolve) => {
+    $q.dialog({
+      title: 'Reassign linked applications',
+      message: 'Select a position to receive linked applications.',
+      options: {
+        type: 'radio',
+        model: String(candidates[0]?.id ?? ''),
+        items: candidates.map((item) => ({
+          label: item.title,
+          value: String(item.id),
+        })),
+      },
+      ok: { label: 'Reassign and delete', color: 'primary' },
+      cancel: { label: 'Cancel', flat: true },
+      persistent: true,
+    })
+      .onOk((value) => {
+        const parsed = Number(value);
+        resolve(Number.isFinite(parsed) ? parsed : null);
+      })
+      .onCancel(() => resolve(null))
+      .onDismiss(() => resolve(null));
+  });
 }
 
 function statusColor(status: PositionStatus) {
