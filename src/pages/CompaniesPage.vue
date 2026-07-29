@@ -100,7 +100,7 @@
                     outline
                     color="negative"
                     label="Delete"
-                    @click="store.remove(item.id)"
+                    @click="tryRemoveCompany(item.id, item.name)"
                   />
                 </div>
               </q-card-section>
@@ -115,17 +115,66 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useQuasar } from 'quasar';
 import { useCompaniesStore } from '@/stores/companies';
+import { usePositionsStore } from '@/stores/positions';
+import { useRecruitersStore } from '@/stores/recruiters';
+import { useApplicationsStore } from '@/stores/applications';
 
 const store = useCompaniesStore();
+const positionsStore = usePositionsStore();
+const recruitersStore = useRecruitersStore();
+const applicationsStore = useApplicationsStore();
+const $q = useQuasar();
 const { filteredItems, editingId } = storeToRefs(store);
 
-onMounted(() => {
+onMounted(async () => {
   store.init();
+  positionsStore.init();
+  recruitersStore.init();
+  await applicationsStore.init();
 });
 
 function submitCompany() {
   store.save();
+}
+
+async function tryRemoveCompany(companyId: number, companyName: string) {
+  positionsStore.init();
+  recruitersStore.init();
+  await applicationsStore.init();
+
+  const linkedPositions = positionsStore.items.filter(
+    (item) => item.companyId === companyId,
+  ).length;
+  const linkedRecruiters = recruitersStore.items.filter(
+    (item) => item.companyId === companyId,
+  ).length;
+  const linkedApplications = applicationsStore.items.filter(
+    (item) => item.companyId === companyId,
+  ).length;
+  const linkedTotal = linkedPositions + linkedRecruiters + linkedApplications;
+
+  if (linkedTotal > 0) {
+    const parts: string[] = [];
+    if (linkedPositions > 0) {
+      parts.push(`${linkedPositions} position${linkedPositions === 1 ? '' : 's'}`);
+    }
+    if (linkedRecruiters > 0) {
+      parts.push(`${linkedRecruiters} recruiter${linkedRecruiters === 1 ? '' : 's'}`);
+    }
+    if (linkedApplications > 0) {
+      parts.push(`${linkedApplications} application${linkedApplications === 1 ? '' : 's'}`);
+    }
+
+    $q.notify({
+      type: 'warning',
+      message: `Cannot delete ${companyName}. It is linked to ${parts.join(', ')}.`,
+    });
+    return;
+  }
+
+  store.remove(companyId);
 }
 
 function formatDate(value: string) {

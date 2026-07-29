@@ -199,6 +199,28 @@ async function run() {
     await linkedCard
       .getByText(`Position: ${positionUpdated}`, { exact: true })
       .waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
+    positionCard = page.locator('.q-card').filter({ hasText: positionUpdated }).first();
+    await positionCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(`Cannot delete ${positionUpdated}. It is linked to 1 application.`, {
+        exact: false,
+      })
+      .waitFor({ timeout: 10000 });
+    await page.getByText(positionUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    companyCard = page.locator('.q-card').filter({ hasText: companyUpdated }).first();
+    await companyCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(`Cannot delete ${companyUpdated}. It is linked to 1 position, 1 application.`, {
+        exact: false,
+      })
+      .waitFor({ timeout: 10000 });
+    await page.getByText(companyUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
     await linkedCard.getByRole('button', { name: 'Delete' }).click();
     await page
       .getByText(`Next: ${linkedAction}`, { exact: true })

@@ -135,7 +135,7 @@
                     outline
                     color="negative"
                     label="Delete"
-                    @click="store.remove(item.id)"
+                    @click="tryRemovePosition(item.id, item.title)"
                   />
                 </div>
               </q-card-section>
@@ -150,12 +150,16 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useQuasar } from 'quasar';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
+import { useApplicationsStore } from '@/stores/applications';
 import type { PositionStatus } from '@/types/networking';
 
 const store = usePositionsStore();
 const companiesStore = useCompaniesStore();
+const applicationsStore = useApplicationsStore();
+const $q = useQuasar();
 const { filteredItems, editingId } = storeToRefs(store);
 const statusOptions: PositionStatus[] = ['Open', 'Interviewing', 'On Hold', 'Closed'];
 const filterOptions: Array<PositionStatus | 'All'> = ['All', ...statusOptions];
@@ -177,13 +181,32 @@ const companyNameById = computed(() => {
   }, {});
 });
 
-onMounted(() => {
+onMounted(async () => {
   store.init();
   companiesStore.init();
+  await applicationsStore.init();
 });
 
 function submitPosition() {
   store.save();
+}
+
+async function tryRemovePosition(positionId: number, positionTitle: string) {
+  await applicationsStore.init();
+
+  const linkedApplications = applicationsStore.items.filter(
+    (item) => item.positionId === positionId,
+  ).length;
+
+  if (linkedApplications > 0) {
+    $q.notify({
+      type: 'warning',
+      message: `Cannot delete ${positionTitle}. It is linked to ${linkedApplications} application${linkedApplications === 1 ? '' : 's'}.`,
+    });
+    return;
+  }
+
+  store.remove(positionId);
 }
 
 function statusColor(status: PositionStatus) {
