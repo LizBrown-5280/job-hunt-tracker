@@ -349,7 +349,7 @@
 import { computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useApplicationsStore } from '@/stores/applications';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
@@ -358,6 +358,7 @@ const store = useApplicationsStore();
 const companiesStore = useCompaniesStore();
 const positionsStore = usePositionsStore();
 const $q = useQuasar();
+const route = useRoute();
 const router = useRouter();
 const { items, filteredItems, editingId } = storeToRefs(store);
 const statusOptions = ['Wishlist', 'Applied', 'Interview', 'Offer', 'Rejected', 'Ghosted'] as const;
@@ -461,6 +462,11 @@ onMounted(async () => {
   await store.init();
   await reconcileLinkedEntities();
 
+  const deepLinkQuery = getDeepLinkQuery();
+  if (deepLinkQuery) {
+    store.search.query = deepLinkQuery;
+  }
+
   window.addEventListener('focus', onWindowFocus);
   document.addEventListener('visibilitychange', onVisibilityChange);
 });
@@ -535,6 +541,18 @@ function openCompaniesPage() {
 
 function openPositionsPage() {
   void router.push('/positions');
+}
+
+function getDeepLinkQuery() {
+  if (typeof route.query.q === 'string') {
+    return route.query.q.trim();
+  }
+
+  if (Array.isArray(route.query.q)) {
+    return route.query.q[0]?.trim() ?? '';
+  }
+
+  return '';
 }
 
 function formatTimestamp(value: string) {

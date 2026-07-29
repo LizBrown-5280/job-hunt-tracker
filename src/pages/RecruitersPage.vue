@@ -146,12 +146,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRoute } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { useRecruitersStore } from '@/stores/recruiters';
 import type { RecruiterRelationship } from '@/types/networking';
 
 const store = useRecruitersStore();
 const companiesStore = useCompaniesStore();
+const route = useRoute();
 const { filteredItems, editingId } = storeToRefs(store);
 const relationshipOptions: RecruiterRelationship[] = ['New', 'Active', 'Dormant'];
 const filterOptions: Array<RecruiterRelationship | 'All'> = ['All', ...relationshipOptions];
@@ -176,6 +178,11 @@ const companyNameById = computed(() => {
 onMounted(() => {
   store.init();
   companiesStore.init();
+
+  const prefillQuery = getDeepLinkQuery();
+  if (prefillQuery) {
+    store.searchQuery = prefillQuery;
+  }
 });
 
 function submitRecruiter() {
@@ -191,6 +198,18 @@ function relationshipColor(relationship: RecruiterRelationship) {
     default:
       return 'grey-7';
   }
+}
+
+function getDeepLinkQuery() {
+  if (typeof route.query.q === 'string') {
+    return route.query.q.trim();
+  }
+
+  if (Array.isArray(route.query.q)) {
+    return route.query.q[0]?.trim() ?? '';
+  }
+
+  return '';
 }
 </script>
 

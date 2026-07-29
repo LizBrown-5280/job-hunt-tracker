@@ -122,6 +122,22 @@
                   {{ item.notes }}
                 </div>
 
+                <div class="row items-center q-gutter-xs q-mt-sm">
+                  <q-chip size="sm" outline color="indigo">
+                    {{ applicationCountByPositionId[item.id] ?? 0 }} applications
+                  </q-chip>
+                </div>
+
+                <div class="row q-gutter-xs q-mt-xs">
+                  <q-btn
+                    size="xs"
+                    flat
+                    color="indigo"
+                    label="View applications"
+                    @click="openApplicationsForPosition(item.title)"
+                  />
+                </div>
+
                 <div class="row q-gutter-sm q-mt-sm">
                   <q-btn
                     size="sm"
@@ -151,6 +167,7 @@
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
+import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
 import { useApplicationsStore } from '@/stores/applications';
@@ -160,6 +177,8 @@ const store = usePositionsStore();
 const companiesStore = useCompaniesStore();
 const applicationsStore = useApplicationsStore();
 const $q = useQuasar();
+const route = useRoute();
+const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 const statusOptions: PositionStatus[] = ['Open', 'Interviewing', 'On Hold', 'Closed'];
 const filterOptions: Array<PositionStatus | 'All'> = ['All', ...statusOptions];
@@ -181,10 +200,26 @@ const companyNameById = computed(() => {
   }, {});
 });
 
+const applicationCountByPositionId = computed(() => {
+  return applicationsStore.items.reduce<Record<number, number>>((acc, item) => {
+    if (item.positionId == null) {
+      return acc;
+    }
+
+    acc[item.positionId] = (acc[item.positionId] ?? 0) + 1;
+    return acc;
+  }, {});
+});
+
 onMounted(async () => {
   store.init();
   companiesStore.init();
   await applicationsStore.init();
+
+  const prefillQuery = getDeepLinkQuery();
+  if (prefillQuery) {
+    store.searchQuery = prefillQuery;
+  }
 });
 
 function submitPosition() {
@@ -307,6 +342,22 @@ function statusColor(status: PositionStatus) {
     default:
       return 'grey-7';
   }
+}
+
+function openApplicationsForPosition(title: string) {
+  void router.push({ path: '/applications', query: { q: title } });
+}
+
+function getDeepLinkQuery() {
+  if (typeof route.query.q === 'string') {
+    return route.query.q.trim();
+  }
+
+  if (Array.isArray(route.query.q)) {
+    return route.query.q[0]?.trim() ?? '';
+  }
+
+  return '';
 }
 </script>
 

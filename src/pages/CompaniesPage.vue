@@ -87,6 +87,42 @@
                   {{ item.notes }}
                 </div>
 
+                <div class="row items-center q-gutter-xs q-mt-sm">
+                  <q-chip size="sm" outline color="primary">
+                    {{ positionCountByCompanyId[item.id] ?? 0 }} positions
+                  </q-chip>
+                  <q-chip size="sm" outline color="secondary">
+                    {{ recruiterCountByCompanyId[item.id] ?? 0 }} recruiters
+                  </q-chip>
+                  <q-chip size="sm" outline color="indigo">
+                    {{ applicationCountByCompanyId[item.id] ?? 0 }} applications
+                  </q-chip>
+                </div>
+
+                <div class="row q-gutter-xs q-mt-xs">
+                  <q-btn
+                    size="xs"
+                    flat
+                    color="primary"
+                    label="View positions"
+                    @click="openPositionsForCompany(item.name)"
+                  />
+                  <q-btn
+                    size="xs"
+                    flat
+                    color="secondary"
+                    label="View recruiters"
+                    @click="openRecruitersForCompany(item.name)"
+                  />
+                  <q-btn
+                    size="xs"
+                    flat
+                    color="indigo"
+                    label="View applications"
+                    @click="openApplicationsForCompany(item.name)"
+                  />
+                </div>
+
                 <div class="row q-gutter-sm q-mt-sm">
                   <q-btn
                     size="sm"
@@ -113,9 +149,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
+import { useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
 import { useRecruitersStore } from '@/stores/recruiters';
@@ -126,7 +163,41 @@ const positionsStore = usePositionsStore();
 const recruitersStore = useRecruitersStore();
 const applicationsStore = useApplicationsStore();
 const $q = useQuasar();
+const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
+
+const positionCountByCompanyId = computed(() => {
+  return positionsStore.items.reduce<Record<number, number>>((acc, item) => {
+    if (item.companyId == null) {
+      return acc;
+    }
+
+    acc[item.companyId] = (acc[item.companyId] ?? 0) + 1;
+    return acc;
+  }, {});
+});
+
+const recruiterCountByCompanyId = computed(() => {
+  return recruitersStore.items.reduce<Record<number, number>>((acc, item) => {
+    if (item.companyId == null) {
+      return acc;
+    }
+
+    acc[item.companyId] = (acc[item.companyId] ?? 0) + 1;
+    return acc;
+  }, {});
+});
+
+const applicationCountByCompanyId = computed(() => {
+  return applicationsStore.items.reduce<Record<number, number>>((acc, item) => {
+    if (item.companyId == null) {
+      return acc;
+    }
+
+    acc[item.companyId] = (acc[item.companyId] ?? 0) + 1;
+    return acc;
+  }, {});
+});
 
 onMounted(async () => {
   store.init();
@@ -278,6 +349,18 @@ function formatDate(value: string) {
     month: 'short',
     day: 'numeric',
   }).format(date);
+}
+
+function openPositionsForCompany(name: string) {
+  void router.push({ path: '/positions', query: { q: name } });
+}
+
+function openRecruitersForCompany(name: string) {
+  void router.push({ path: '/recruiters', query: { q: name } });
+}
+
+function openApplicationsForCompany(name: string) {
+  void router.push({ path: '/applications', query: { q: name } });
 }
 </script>
 
