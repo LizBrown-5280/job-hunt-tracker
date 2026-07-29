@@ -146,7 +146,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { useRecruitersStore } from '@/stores/recruiters';
 import type { RecruiterRelationship } from '@/types/networking';
@@ -154,6 +154,7 @@ import type { RecruiterRelationship } from '@/types/networking';
 const store = useRecruitersStore();
 const companiesStore = useCompaniesStore();
 const route = useRoute();
+const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 const relationshipOptions: RecruiterRelationship[] = ['New', 'Active', 'Dormant'];
 const filterOptions: Array<RecruiterRelationship | 'All'> = ['All', ...relationshipOptions];
@@ -182,6 +183,7 @@ onMounted(() => {
   const prefillQuery = getDeepLinkQuery();
   if (prefillQuery) {
     store.searchQuery = prefillQuery;
+    clearDeepLinkQuery();
   }
 });
 
@@ -210,6 +212,16 @@ function getDeepLinkQuery() {
   }
 
   return '';
+}
+
+function clearDeepLinkQuery() {
+  if (!('q' in route.query)) {
+    return;
+  }
+
+  const nextQuery = { ...route.query };
+  delete nextQuery.q;
+  void router.replace({ path: route.path, query: nextQuery });
 }
 </script>
 

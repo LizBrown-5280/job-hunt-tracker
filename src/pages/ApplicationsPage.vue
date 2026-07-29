@@ -465,6 +465,7 @@ onMounted(async () => {
   const deepLinkQuery = getDeepLinkQuery();
   if (deepLinkQuery) {
     store.search.query = deepLinkQuery;
+    clearDeepLinkQuery();
   }
 
   window.addEventListener('focus', onWindowFocus);
@@ -553,6 +554,16 @@ function getDeepLinkQuery() {
   }
 
   return '';
+}
+
+function clearDeepLinkQuery() {
+  if (!('q' in route.query)) {
+    return;
+  }
+
+  const nextQuery = { ...route.query };
+  delete nextQuery.q;
+  void router.replace({ path: route.path, query: nextQuery });
 }
 
 function formatTimestamp(value: string) {

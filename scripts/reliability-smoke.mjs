@@ -199,21 +199,21 @@ async function run() {
 
     companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'View positions' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/positions')}.*q=`), { timeout: 10000 });
+    await page.waitForURL(new RegExp(`${escapeRegExp('/positions')}`), { timeout: 10000 });
     await assertSearchPrefill(page, 'Search positions', companyUpdated);
     await page.getByLabel('Search positions').fill('');
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
     companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'View recruiters' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}.*q=`), { timeout: 10000 });
+    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}`), { timeout: 10000 });
     await assertSearchPrefill(page, 'Search recruiters', companyUpdated);
     await page.getByLabel('Search recruiters').fill('');
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
     companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'View applications' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}.*q=`), { timeout: 10000 });
+    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}`), { timeout: 10000 });
     await assertSearchPrefill(page, 'Search applications', companyUpdated);
     await page.getByLabel('Search applications').fill('');
 
@@ -232,7 +232,7 @@ async function run() {
 
     positionCard = getEntityCardByTitle(page, positionUpdated);
     await positionCard.getByRole('button', { name: 'View applications' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}.*q=`), { timeout: 10000 });
+    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}`), { timeout: 10000 });
     await assertSearchPrefill(page, 'Search applications', positionUpdated);
     await page.getByLabel('Search applications').fill('');
 

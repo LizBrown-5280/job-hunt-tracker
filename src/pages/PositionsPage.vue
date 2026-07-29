@@ -219,6 +219,7 @@ onMounted(async () => {
   const prefillQuery = getDeepLinkQuery();
   if (prefillQuery) {
     store.searchQuery = prefillQuery;
+    clearDeepLinkQuery();
   }
 });
 
@@ -358,6 +359,16 @@ function getDeepLinkQuery() {
   }
 
   return '';
+}
+
+function clearDeepLinkQuery() {
+  if (!('q' in route.query)) {
+    return;
+  }
+
+  const nextQuery = { ...route.query };
+  delete nextQuery.q;
+  void router.replace({ path: route.path, query: nextQuery });
 }
 </script>
 
