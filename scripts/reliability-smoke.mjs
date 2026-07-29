@@ -80,6 +80,26 @@ function getEntityCardByTitle(page, title) {
   return titleNode.locator('xpath=ancestor::div[contains(@class,"q-card")][1]');
 }
 
+async function assertSearchPrefill(page, fieldLabel, expectedValue) {
+  const input = page.getByLabel(fieldLabel);
+  await input.waitFor({ timeout: 10000 });
+
+  const startedAt = Date.now();
+  const timeoutMs = 10000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const actual = (await input.inputValue()).trim();
+    if (actual === expectedValue) {
+      return;
+    }
+
+    await page.waitForTimeout(200);
+  }
+
+  const actual = (await input.inputValue()).trim();
+  throw new Error(`Expected ${fieldLabel} to be "${expectedValue}", but received "${actual}".`);
+}
+
 async function run() {
   const devServer = spawnDevServer();
   const tempDir = await mkdtemp(path.join(tmpdir(), 'job-hunt-smoke-'));
@@ -177,6 +197,26 @@ async function run() {
     await page.getByRole('button', { name: 'Save changes' }).click();
     await page.getByText(companyUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
+    companyCard = getEntityCardByTitle(page, companyUpdated);
+    await companyCard.getByRole('button', { name: 'View positions' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/positions')}.*q=`), { timeout: 10000 });
+    await assertSearchPrefill(page, 'Search positions', companyUpdated);
+    await page.getByLabel('Search positions').fill('');
+
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    companyCard = getEntityCardByTitle(page, companyUpdated);
+    await companyCard.getByRole('button', { name: 'View recruiters' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}.*q=`), { timeout: 10000 });
+    await assertSearchPrefill(page, 'Search recruiters', companyUpdated);
+    await page.getByLabel('Search recruiters').fill('');
+
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    companyCard = getEntityCardByTitle(page, companyUpdated);
+    await companyCard.getByRole('button', { name: 'View applications' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}.*q=`), { timeout: 10000 });
+    await assertSearchPrefill(page, 'Search applications', companyUpdated);
+    await page.getByLabel('Search applications').fill('');
+
     await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByLabel('Position title').fill(positionInitial);
     await selectQOption(page, 'Company', companyUpdated);
@@ -189,6 +229,12 @@ async function run() {
     await page.getByLabel('Position title').fill(positionUpdated);
     await page.getByRole('button', { name: 'Save changes' }).click();
     await page.getByText(positionUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    positionCard = getEntityCardByTitle(page, positionUpdated);
+    await positionCard.getByRole('button', { name: 'View applications' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}.*q=`), { timeout: 10000 });
+    await assertSearchPrefill(page, 'Search applications', positionUpdated);
+    await page.getByLabel('Search applications').fill('');
 
     await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByRole('textbox', { name: 'Company' }).fill(companyUpdated);
