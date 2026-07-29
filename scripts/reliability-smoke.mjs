@@ -70,6 +70,16 @@ async function selectQOption(page, fieldLabel, optionText) {
   await option.click();
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getEntityCardByTitle(page, title) {
+  const titleMatcher = new RegExp(`^${escapeRegExp(title)}$`);
+  const titleNode = page.locator('.text-subtitle1', { hasText: titleMatcher }).first();
+  return titleNode.locator('xpath=ancestor::div[contains(@class,"q-card")][1]');
+}
+
 async function run() {
   const devServer = spawnDevServer();
   const tempDir = await mkdtemp(path.join(tmpdir(), 'job-hunt-smoke-'));
@@ -161,7 +171,7 @@ async function run() {
     await page.getByRole('button', { name: 'Save company' }).click();
     await page.getByText(companyInitial, { exact: true }).waitFor({ timeout: 10000 });
 
-    let companyCard = page.locator('.q-card').filter({ hasText: companyInitial }).first();
+    let companyCard = getEntityCardByTitle(page, companyInitial);
     await companyCard.getByRole('button', { name: 'Edit' }).click();
     await page.getByLabel('Company name').fill(companyUpdated);
     await page.getByRole('button', { name: 'Save changes' }).click();
@@ -174,7 +184,7 @@ async function run() {
     await page.getByRole('button', { name: 'Save position' }).click();
     await page.getByText(positionInitial, { exact: true }).waitFor({ timeout: 10000 });
 
-    let positionCard = page.locator('.q-card').filter({ hasText: positionInitial }).first();
+    let positionCard = getEntityCardByTitle(page, positionInitial);
     await positionCard.getByRole('button', { name: 'Edit' }).click();
     await page.getByLabel('Position title').fill(positionUpdated);
     await page.getByRole('button', { name: 'Save changes' }).click();
@@ -201,14 +211,14 @@ async function run() {
       .waitFor({ timeout: 10000 });
 
     await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
-    positionCard = page.locator('.q-card').filter({ hasText: positionUpdated }).first();
+    positionCard = getEntityCardByTitle(page, positionUpdated);
     await positionCard.getByRole('button', { name: 'Delete' }).click();
     await page.getByText('Linked records found', { exact: false }).waitFor({ timeout: 10000 });
     await page.locator('.q-dialog').getByRole('button', { name: 'Cancel' }).click();
     await page.getByText(positionUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
-    companyCard = page.locator('.q-card').filter({ hasText: companyUpdated }).first();
+    companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'Delete' }).click();
     await page.getByText('Linked records found', { exact: false }).waitFor({ timeout: 10000 });
     await page.locator('.q-dialog').getByRole('button', { name: 'Cancel' }).click();
@@ -221,14 +231,14 @@ async function run() {
       .waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
-    positionCard = page.locator('.q-card').filter({ hasText: positionUpdated }).first();
+    positionCard = getEntityCardByTitle(page, positionUpdated);
     await positionCard.getByRole('button', { name: 'Delete' }).click();
     await page
       .getByText(positionUpdated, { exact: true })
       .waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
-    companyCard = page.locator('.q-card').filter({ hasText: companyUpdated }).first();
+    companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'Delete' }).click();
     await page
       .getByText(companyUpdated, { exact: true })
@@ -240,13 +250,13 @@ async function run() {
     await page.getByRole('button', { name: 'Save recruiter' }).click();
     await page.getByText(recruiterInitial, { exact: true }).waitFor({ timeout: 10000 });
 
-    let recruiterCard = page.locator('.q-card').filter({ hasText: recruiterInitial }).first();
+    let recruiterCard = getEntityCardByTitle(page, recruiterInitial);
     await recruiterCard.getByRole('button', { name: 'Edit' }).click();
     await page.getByLabel('Full name').fill(recruiterUpdated);
     await page.getByRole('button', { name: 'Save changes' }).click();
     await page.getByText(recruiterUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
-    recruiterCard = page.locator('.q-card').filter({ hasText: recruiterUpdated }).first();
+    recruiterCard = getEntityCardByTitle(page, recruiterUpdated);
     await recruiterCard.getByRole('button', { name: 'Delete' }).click();
     await page
       .getByText(recruiterUpdated, { exact: true })

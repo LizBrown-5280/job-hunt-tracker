@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import Dexie from 'dexie';
 import type { ApplicationRecord, ApplicationStatus } from '@/types/applications';
+import type { CompanyRecord, PositionRecord, RecruiterRecord } from '@/types/networking';
 
 type DraftApplication = Pick<
   ApplicationRecord,
@@ -50,6 +51,9 @@ type HealthCheckResult = {
 
 const PROFILE_STORAGE_KEY = 'job-hunt-tracker-profile';
 const BACKUP_META_STORAGE_KEY = 'job-hunt-tracker-backup-meta';
+const COMPANIES_STORAGE_KEY = 'job-hunt-tracker-companies-v1';
+const POSITIONS_STORAGE_KEY = 'job-hunt-tracker-positions-v1';
+const RECRUITERS_STORAGE_KEY = 'job-hunt-tracker-recruiters-v1';
 
 function loadStoredProfile(): UserProfile {
   if (typeof window === 'undefined') {
@@ -231,79 +235,297 @@ class ApplicationsDatabase extends Dexie {
 
 const db = new ApplicationsDatabase();
 
-const seedDemoApplications = async () => {
-  const demoItems: Omit<ApplicationRecord, 'id'>[] = [
-    {
-      company: 'Northwind Labs',
-      role: 'Frontend Developer',
-      status: 'Interview',
-      appliedDate: '2026-07-20',
-      nextAction: 'Follow up with recruiter',
-      notes: 'Great team fit and strong product story.',
-      priority: 'High',
-      followUpDate: '2026-07-30',
-      favoriteRating: 4,
-      createdAt: '2026-07-20T10:00:00.000Z',
-      updatedAt: '2026-07-21T09:30:00.000Z',
-    },
-    {
-      company: 'Blue Harbor',
-      role: 'Product Designer',
-      status: 'Applied',
-      appliedDate: '2026-07-23',
-      nextAction: 'Prepare portfolio review',
-      notes: 'Applied through the careers page.',
-      priority: 'Medium',
-      followUpDate: '2026-07-28',
-      favoriteRating: 2,
-      createdAt: '2026-07-23T12:15:00.000Z',
-      updatedAt: '2026-07-23T12:15:00.000Z',
-    },
-    {
-      company: 'Riverstone AI',
-      role: 'Full Stack Engineer',
-      status: 'Wishlist',
-      appliedDate: '2026-07-25',
-      nextAction: 'Research team stack',
-      notes: 'Interesting role but not ready to apply yet.',
-      priority: 'Low',
-      followUpDate: '',
-      favoriteRating: 3,
-      createdAt: '2026-07-25T15:45:00.000Z',
-      updatedAt: '2026-07-25T15:45:00.000Z',
-    },
-    {
-      company: 'Cedar & Co',
-      role: 'QA Engineer',
-      status: 'Offer',
-      appliedDate: '2026-07-10',
-      nextAction: 'Review compensation package',
-      notes: 'Positive response from hiring manager.',
-      priority: 'High',
-      followUpDate: '2026-07-31',
-      favoriteRating: 5,
-      createdAt: '2026-07-10T08:20:00.000Z',
-      updatedAt: '2026-07-12T16:00:00.000Z',
-    },
-    {
-      company: 'Pine & Pear',
-      role: 'Operations Analyst',
-      status: 'Ghosted',
-      appliedDate: '2026-06-18',
-      nextAction: 'Archive and move on',
-      notes: 'No response after the second follow-up.',
-      createdAt: '2026-06-18T09:00:00.000Z',
-      updatedAt: '2026-06-25T14:30:00.000Z',
-    },
-  ];
+const demoCompanies: CompanyRecord[] = [
+  {
+    id: 1,
+    name: 'Northwind Labs',
+    website: 'https://northwindlabs.example',
+    industry: 'SaaS',
+    location: 'Denver, CO',
+    notes: 'Strong frontend culture and modern stack.',
+    createdAt: '2026-07-10T09:00:00.000Z',
+    updatedAt: '2026-07-24T15:00:00.000Z',
+  },
+  {
+    id: 2,
+    name: 'Blue Harbor',
+    website: 'https://blueharbor.example',
+    industry: 'Fintech',
+    location: 'Austin, TX',
+    notes: 'Product-heavy org with design partnerships.',
+    createdAt: '2026-07-11T09:00:00.000Z',
+    updatedAt: '2026-07-25T15:00:00.000Z',
+  },
+  {
+    id: 3,
+    name: 'Riverstone AI',
+    website: 'https://riverstoneai.example',
+    industry: 'AI/ML',
+    location: 'Remote',
+    notes: 'Platform roles with backend and product scope.',
+    createdAt: '2026-07-12T09:00:00.000Z',
+    updatedAt: '2026-07-26T15:00:00.000Z',
+  },
+  {
+    id: 4,
+    name: 'Cedar & Co',
+    website: 'https://cedarco.example',
+    industry: 'HealthTech',
+    location: 'Seattle, WA',
+    notes: 'Fast interview process and clear role expectations.',
+    createdAt: '2026-07-13T09:00:00.000Z',
+    updatedAt: '2026-07-27T15:00:00.000Z',
+  },
+  {
+    id: 5,
+    name: 'Pine & Pear',
+    website: 'https://pinepear.example',
+    industry: 'Operations',
+    location: 'Chicago, IL',
+    notes: 'Older opening with low response rate.',
+    createdAt: '2026-07-14T09:00:00.000Z',
+    updatedAt: '2026-07-28T15:00:00.000Z',
+  },
+];
+
+const demoPositions: PositionRecord[] = [
+  {
+    id: 1,
+    title: 'Frontend Developer',
+    companyId: 1,
+    status: 'Interviewing',
+    location: 'Denver, CO',
+    compensation: '$135k-$155k',
+    link: 'https://northwindlabs.example/careers/frontend-developer',
+    notes: 'Emphasis on Vue and design systems.',
+    createdAt: '2026-07-15T09:00:00.000Z',
+    updatedAt: '2026-07-25T10:00:00.000Z',
+  },
+  {
+    id: 2,
+    title: 'Product Designer',
+    companyId: 2,
+    status: 'Open',
+    location: 'Austin, TX',
+    compensation: '$120k-$140k',
+    link: 'https://blueharbor.example/jobs/product-designer',
+    notes: 'Portfolio presentation in round two.',
+    createdAt: '2026-07-16T09:00:00.000Z',
+    updatedAt: '2026-07-25T11:00:00.000Z',
+  },
+  {
+    id: 3,
+    title: 'Full Stack Engineer',
+    companyId: 3,
+    status: 'Open',
+    location: 'Remote',
+    compensation: '$145k-$170k',
+    link: 'https://riverstoneai.example/careers/full-stack',
+    notes: 'Node, TypeScript, and AI product integrations.',
+    createdAt: '2026-07-17T09:00:00.000Z',
+    updatedAt: '2026-07-25T12:00:00.000Z',
+  },
+  {
+    id: 4,
+    title: 'QA Engineer',
+    companyId: 4,
+    status: 'Closed',
+    location: 'Seattle, WA',
+    compensation: '$110k-$130k',
+    link: 'https://cedarco.example/careers/qa-engineer',
+    notes: 'Offer received and decision pending.',
+    createdAt: '2026-07-18T09:00:00.000Z',
+    updatedAt: '2026-07-25T13:00:00.000Z',
+  },
+];
+
+const demoRecruiters: RecruiterRecord[] = [
+  {
+    id: 1,
+    fullName: 'Jordan Lee',
+    companyId: 1,
+    email: 'jordan.lee@northwindlabs.example',
+    linkedinUrl: 'https://linkedin.com/in/jordan-lee-recruiter',
+    relationship: 'Active',
+    notes: 'Quick turnaround on interview scheduling.',
+    createdAt: '2026-07-18T14:00:00.000Z',
+    updatedAt: '2026-07-24T17:00:00.000Z',
+  },
+  {
+    id: 2,
+    fullName: 'Casey Morgan',
+    companyId: 2,
+    email: 'casey.morgan@blueharbor.example',
+    linkedinUrl: 'https://linkedin.com/in/casey-morgan-recruiting',
+    relationship: 'New',
+    notes: 'Initial outreach after portfolio submission.',
+    createdAt: '2026-07-19T14:00:00.000Z',
+    updatedAt: '2026-07-24T18:00:00.000Z',
+  },
+  {
+    id: 3,
+    fullName: 'Taylor Nguyen',
+    companyId: 4,
+    email: 'taylor.nguyen@cedarco.example',
+    linkedinUrl: 'https://linkedin.com/in/taylor-nguyen-talent',
+    relationship: 'Active',
+    notes: 'Shared offer package and start date options.',
+    createdAt: '2026-07-20T14:00:00.000Z',
+    updatedAt: '2026-07-24T19:00:00.000Z',
+  },
+];
+
+const demoApplications: Omit<ApplicationRecord, 'id'>[] = [
+  {
+    company: 'Northwind Labs',
+    companyId: 1,
+    role: 'Frontend Developer',
+    positionId: 1,
+    status: 'Interview',
+    appliedDate: '2026-07-20',
+    nextAction: 'Follow up with recruiter',
+    notes: 'Great team fit and strong product story.',
+    priority: 'High',
+    followUpDate: '2026-07-30',
+    favoriteRating: 4,
+    createdAt: '2026-07-20T10:00:00.000Z',
+    updatedAt: '2026-07-21T09:30:00.000Z',
+  },
+  {
+    company: 'Blue Harbor',
+    companyId: 2,
+    role: 'Product Designer',
+    positionId: 2,
+    status: 'Applied',
+    appliedDate: '2026-07-23',
+    nextAction: 'Prepare portfolio review',
+    notes: 'Applied through the careers page.',
+    priority: 'Medium',
+    followUpDate: '2026-07-28',
+    favoriteRating: 2,
+    createdAt: '2026-07-23T12:15:00.000Z',
+    updatedAt: '2026-07-23T12:15:00.000Z',
+  },
+  {
+    company: 'Riverstone AI',
+    companyId: 3,
+    role: 'Full Stack Engineer',
+    positionId: 3,
+    status: 'Wishlist',
+    appliedDate: '2026-07-25',
+    nextAction: 'Research team stack',
+    notes: 'Interesting role but not ready to apply yet.',
+    priority: 'Low',
+    followUpDate: '',
+    favoriteRating: 3,
+    createdAt: '2026-07-25T15:45:00.000Z',
+    updatedAt: '2026-07-25T15:45:00.000Z',
+  },
+  {
+    company: 'Cedar & Co',
+    companyId: 4,
+    role: 'QA Engineer',
+    positionId: 4,
+    status: 'Offer',
+    appliedDate: '2026-07-10',
+    nextAction: 'Review compensation package',
+    notes: 'Positive response from hiring manager.',
+    priority: 'High',
+    followUpDate: '2026-07-31',
+    favoriteRating: 5,
+    createdAt: '2026-07-10T08:20:00.000Z',
+    updatedAt: '2026-07-12T16:00:00.000Z',
+  },
+  {
+    company: 'Pine & Pear',
+    companyId: 5,
+    role: 'Operations Analyst',
+    positionId: null,
+    status: 'Ghosted',
+    appliedDate: '2026-06-18',
+    nextAction: 'Archive and move on',
+    notes: 'No response after the second follow-up.',
+    priority: 'Low',
+    followUpDate: '',
+    favoriteRating: 1,
+    createdAt: '2026-06-18T09:00:00.000Z',
+    updatedAt: '2026-06-25T14:30:00.000Z',
+  },
+];
+
+function writeLocalSeedData<T>(key: string, items: T[]) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(key, JSON.stringify(items));
+}
+
+function hasStoredItems(key: string) {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const raw = window.localStorage.getItem(key);
+  if (!raw) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) && parsed.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function isDeveloperModeEnabled() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  if (import.meta.env.DEV) {
+    return true;
+  }
+
+  const preview = new URLSearchParams(window.location.search).get('preview');
+  return preview === 'dev';
+}
+
+const seedLinkedDemoData = async ({ replace }: { replace: boolean }) => {
+  const shouldSeedCompanies = replace || !hasStoredItems(COMPANIES_STORAGE_KEY);
+  const shouldSeedPositions = replace || !hasStoredItems(POSITIONS_STORAGE_KEY);
+  const shouldSeedRecruiters = replace || !hasStoredItems(RECRUITERS_STORAGE_KEY);
+
+  if (shouldSeedCompanies) {
+    writeLocalSeedData(COMPANIES_STORAGE_KEY, demoCompanies);
+  }
+
+  if (shouldSeedPositions) {
+    writeLocalSeedData(POSITIONS_STORAGE_KEY, demoPositions);
+  }
+
+  if (shouldSeedRecruiters) {
+    writeLocalSeedData(RECRUITERS_STORAGE_KEY, demoRecruiters);
+  }
 
   const existing = await db.applications.toArray();
-  const hasSeedData = existing.some((item) =>
-    demoItems.some((seed) => seed.company === item.company && seed.role === item.role),
-  );
+  if (replace || existing.length === 0) {
+    if (replace) {
+      await db.applications.clear();
+    }
+    await db.applications.bulkAdd(demoApplications);
+    return;
+  }
+
+  const hasSeedData = existing.some((item) => {
+    return demoApplications.some(
+      (seed) => seed.company === item.company && seed.role === item.role,
+    );
+  });
 
   if (!hasSeedData) {
-    await db.applications.bulkAdd(demoItems);
+    await db.applications.bulkAdd(demoApplications);
   }
 };
 
@@ -390,10 +612,8 @@ export const useApplicationsStore = defineStore('applications', {
     async init() {
       this.profile = loadStoredProfile();
 
-      const existing = await db.applications.toArray();
-
-      if (existing.length === 0) {
-        await seedDemoApplications();
+      if (isDeveloperModeEnabled()) {
+        await seedLinkedDemoData({ replace: false });
       }
 
       const freshItems = await db.applications.orderBy('createdAt').reverse().toArray();
@@ -509,15 +729,21 @@ export const useApplicationsStore = defineStore('applications', {
     },
 
     async resetDemoData() {
-      await db.applications.clear();
-      await seedDemoApplications();
+      if (!isDeveloperModeEnabled()) {
+        return;
+      }
+
+      await seedLinkedDemoData({ replace: true });
       this.items = await db.applications.orderBy('createdAt').reverse().toArray();
     },
 
     async resetDemoDataKeepProfile() {
+      if (!isDeveloperModeEnabled()) {
+        return;
+      }
+
       const currentProfile = this.profile;
-      await db.applications.clear();
-      await seedDemoApplications();
+      await seedLinkedDemoData({ replace: true });
       this.items = await db.applications.orderBy('createdAt').reverse().toArray();
       this.profile = currentProfile;
       persistProfile(this.profile);
