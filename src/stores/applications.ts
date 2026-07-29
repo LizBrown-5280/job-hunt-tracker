@@ -5,7 +5,9 @@ import type { ApplicationRecord, ApplicationStatus } from '@/types/applications'
 type DraftApplication = Pick<
   ApplicationRecord,
   | 'company'
+  | 'companyId'
   | 'role'
+  | 'positionId'
   | 'status'
   | 'appliedDate'
   | 'nextAction'
@@ -136,7 +138,9 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
 
   const normalized: ApplicationRecord = {
     company: typeof input.company === 'string' ? input.company : '',
+    companyId: typeof input.companyId === 'number' ? input.companyId : null,
     role: typeof input.role === 'string' ? input.role : '',
+    positionId: typeof input.positionId === 'number' ? input.positionId : null,
     status: toStatus(input.status),
     appliedDate:
       typeof input.appliedDate === 'string' && input.appliedDate
@@ -206,6 +210,20 @@ class ApplicationsDatabase extends Dexie {
               typeof record.favoriteRating === 'number' ? record.favoriteRating : 0;
             record.createdAt = createdAt;
             record.updatedAt = toDateString(record.updatedAt, createdAt);
+          });
+      });
+    this.version(4)
+      .stores({
+        applications:
+          '++id, company, companyId, role, positionId, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('applications')
+          .toCollection()
+          .modify((record: Partial<ApplicationRecord>) => {
+            record.companyId = typeof record.companyId === 'number' ? record.companyId : null;
+            record.positionId = typeof record.positionId === 'number' ? record.positionId : null;
           });
       });
   }
@@ -291,7 +309,9 @@ const seedDemoApplications = async () => {
 
 const createDraft = (): DraftApplication => ({
   company: '',
+  companyId: null,
   role: '',
+  positionId: null,
   status: 'Applied',
   appliedDate: new Date().toISOString().slice(0, 10),
   nextAction: '',
@@ -414,7 +434,9 @@ export const useApplicationsStore = defineStore('applications', {
       this.editingId = item.id ?? null;
       this.draft = {
         company: item.company,
+        companyId: item.companyId ?? null,
         role: item.role,
+        positionId: item.positionId ?? null,
         status: item.status,
         appliedDate: item.appliedDate,
         nextAction: item.nextAction,
@@ -429,6 +451,8 @@ export const useApplicationsStore = defineStore('applications', {
       const now = new Date().toISOString();
       const payload = {
         ...this.draft,
+        companyId: this.draft.companyId ?? null,
+        positionId: this.draft.positionId ?? null,
         status: this.draft.status,
         priority: this.draft.priority ?? 'Medium',
         followUpDate: this.draft.followUpDate ?? '',
@@ -574,7 +598,9 @@ export const useApplicationsStore = defineStore('applications', {
         const unique = Date.now();
         this.draft = {
           company: `HealthCheck Co ${unique}`,
+          companyId: null,
           role: 'Health Check Role',
+          positionId: null,
           status: 'Applied',
           appliedDate: new Date().toISOString().slice(0, 10),
           nextAction: 'Verify create flow',

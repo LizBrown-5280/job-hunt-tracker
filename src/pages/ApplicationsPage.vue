@@ -15,6 +15,20 @@
               class="q-mb-sm"
               required
             />
+            <q-select
+              v-model="store.draft.companyId"
+              :options="companyOptions"
+              option-label="label"
+              option-value="value"
+              label="Linked company"
+              filled
+              dense
+              emit-value
+              map-options
+              clearable
+              class="q-mb-sm"
+              @update:model-value="onCompanyLinkChange"
+            />
             <q-input
               v-model="store.draft.role"
               label="Role"
@@ -22,6 +36,20 @@
               dense
               class="q-mb-sm"
               required
+            />
+            <q-select
+              v-model="store.draft.positionId"
+              :options="positionOptions"
+              option-label="label"
+              option-value="value"
+              label="Linked position"
+              filled
+              dense
+              emit-value
+              map-options
+              clearable
+              class="q-mb-sm"
+              @update:model-value="onPositionLinkChange"
             />
             <q-select
               v-model="store.draft.status"
@@ -229,6 +257,12 @@
                   <q-chip v-if="item.followUpDate" size="sm" outline color="primary">
                     Follow-up {{ item.followUpDate }}
                   </q-chip>
+                  <q-chip v-if="item.companyId != null" size="sm" outline color="indigo">
+                    Company: {{ companyNameById[item.companyId] ?? 'Unknown company' }}
+                  </q-chip>
+                  <q-chip v-if="item.positionId != null" size="sm" outline color="deep-orange">
+                    Position: {{ positionTitleById[item.positionId] ?? 'Unknown position' }}
+                  </q-chip>
                 </div>
                 <div v-if="item.nextAction" class="text-body2 q-mt-sm">
                   Next: {{ item.nextAction }}
@@ -282,8 +316,12 @@
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useApplicationsStore } from '@/stores/applications';
+import { useCompaniesStore } from '@/stores/companies';
+import { usePositionsStore } from '@/stores/positions';
 
 const store = useApplicationsStore();
+const companiesStore = useCompaniesStore();
+const positionsStore = usePositionsStore();
 const { items, filteredItems, editingId } = storeToRefs(store);
 const statusOptions = ['Wishlist', 'Applied', 'Interview', 'Offer', 'Rejected', 'Ghosted'] as const;
 const priorityOptions = ['Low', 'Medium', 'High'] as const;
@@ -305,12 +343,52 @@ const hasDraftContent = computed(
     Boolean(store.draft.company.trim()) ||
     Boolean(store.draft.role.trim()) ||
     Boolean(store.draft.nextAction.trim()) ||
-    Boolean(store.draft.notes.trim()),
+    Boolean(store.draft.notes.trim()) ||
+    store.draft.companyId != null ||
+    store.draft.positionId != null,
+);
+
+const companyOptions = computed(() =>
+  companiesStore.items
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((company) => ({
+      label: company.name,
+      value: company.id,
+    })),
+);
+
+const companyNameById = computed(() =>
+  companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+    acc[company.id] = company.name;
+    return acc;
+  }, {}),
+);
+
+const positionOptions = computed(() => {
+  const sorted = positionsStore.items.slice().sort((a, b) => a.title.localeCompare(b.title));
+
+  return sorted.map((position) => ({
+    label:
+      position.companyId != null && companyNameById.value[position.companyId]
+        ? `${position.title} (${companyNameById.value[position.companyId]})`
+        : position.title,
+    value: position.id,
+  }));
+});
+
+const positionTitleById = computed(() =>
+  positionsStore.items.reduce<Record<number, string>>((acc, position) => {
+    acc[position.id] = position.title;
+    return acc;
+  }, {}),
 );
 
 onMounted(() => {
   store.resetFilters();
   void store.init();
+  companiesStore.init();
+  positionsStore.init();
 });
 
 async function submitApplication() {
@@ -323,6 +401,40 @@ function clearFilters() {
 
 function onFilterChange(value: string) {
   store.setFilter(value as (typeof filterOptions)[number]);
+}
+
+function onCompanyLinkChange(value: number | null) {
+  if (value == null) {
+    return;
+  }
+
+  const company = companiesStore.items.find((item) => item.id === value);
+  if (!company) {
+    return;
+  }
+
+  store.draft.company = company.name;
+}
+
+function onPositionLinkChange(value: number | null) {
+  if (value == null) {
+    return;
+  }
+
+  const position = positionsStore.items.find((item) => item.id === value);
+  if (!position) {
+    return;
+  }
+
+  store.draft.role = position.title;
+
+  if (position.companyId != null) {
+    store.draft.companyId = position.companyId;
+    const company = companiesStore.items.find((item) => item.id === position.companyId);
+    if (company) {
+      store.draft.company = company.name;
+    }
+  }
 }
 
 function formatTimestamp(value: string) {

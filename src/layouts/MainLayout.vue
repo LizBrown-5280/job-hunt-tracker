@@ -27,6 +27,18 @@
           <q-item-section avatar><q-icon name="work" /></q-item-section>
           <q-item-section>Applications</q-item-section>
         </q-item>
+        <q-item clickable to="/positions" class="nav-item">
+          <q-item-section avatar><q-icon name="badge" /></q-item-section>
+          <q-item-section>Positions</q-item-section>
+        </q-item>
+        <q-item clickable to="/companies" class="nav-item">
+          <q-item-section avatar><q-icon name="apartment" /></q-item-section>
+          <q-item-section>Companies</q-item-section>
+        </q-item>
+        <q-item clickable to="/recruiters" class="nav-item">
+          <q-item-section avatar><q-icon name="groups" /></q-item-section>
+          <q-item-section>Recruiters</q-item-section>
+        </q-item>
         <q-item clickable to="/insights" class="nav-item">
           <q-item-section avatar><q-icon name="insights" /></q-item-section>
           <q-item-section>Insights</q-item-section>

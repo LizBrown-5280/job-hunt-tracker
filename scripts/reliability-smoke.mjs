@@ -63,6 +63,13 @@ function stopProcess(child) {
   });
 }
 
+async function selectQOption(page, fieldLabel, optionText) {
+  await page.getByLabel(fieldLabel).click();
+  const option = page.locator('.q-menu .q-item').filter({ hasText: optionText }).first();
+  await option.waitFor({ timeout: 10000 });
+  await option.click();
+}
+
 async function run() {
   const devServer = spawnDevServer();
   const tempDir = await mkdtemp(path.join(tmpdir(), 'job-hunt-smoke-'));
@@ -113,6 +120,15 @@ async function run() {
 
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    const runId = Date.now().toString();
+
+    const companyInitial = `Smoke Company ${runId}`;
+    const companyUpdated = `${companyInitial} Updated`;
+    const positionInitial = `Smoke Position ${runId}`;
+    const positionUpdated = `${positionInitial} Updated`;
+    const recruiterInitial = `Smoke Recruiter ${runId}`;
+    const recruiterUpdated = `${recruiterInitial} Updated`;
+    const linkedAction = `Smoke linked action ${runId}`;
 
     await page.goto(DEV_URL, { waitUntil: 'networkidle' });
 
@@ -138,6 +154,87 @@ async function run() {
 
     await page.getByRole('button', { name: 'Run core flow health check' }).click();
     await page.getByText('Health check passed (', { exact: false }).waitFor({ timeout: 15000 });
+
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    await page.getByLabel('Company name').fill(companyInitial);
+    await page.getByLabel('Website').fill('https://example.com');
+    await page.getByRole('button', { name: 'Save company' }).click();
+    await page.getByText(companyInitial, { exact: true }).waitFor({ timeout: 10000 });
+
+    let companyCard = page.locator('.q-card').filter({ hasText: companyInitial }).first();
+    await companyCard.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Company name').fill(companyUpdated);
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await page.getByText(companyUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
+    await page.getByLabel('Position title').fill(positionInitial);
+    await selectQOption(page, 'Company', companyUpdated);
+    await page.getByLabel('Location').fill('Remote');
+    await page.getByRole('button', { name: 'Save position' }).click();
+    await page.getByText(positionInitial, { exact: true }).waitFor({ timeout: 10000 });
+
+    let positionCard = page.locator('.q-card').filter({ hasText: positionInitial }).first();
+    await positionCard.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Position title').fill(positionUpdated);
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await page.getByText(positionUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await page.getByRole('textbox', { name: 'Company' }).fill(companyUpdated);
+    await selectQOption(page, 'Linked company', companyUpdated);
+    await page.getByRole('textbox', { name: 'Role' }).fill(positionUpdated);
+    await selectQOption(page, 'Linked position', positionUpdated);
+    await page.getByLabel('Next action').fill(linkedAction);
+    await page.getByRole('button', { name: 'Save application' }).click();
+
+    const linkedActionText = page.getByText(`Next: ${linkedAction}`, { exact: true });
+    const linkedCard = linkedActionText.locator(
+      'xpath=ancestor::div[contains(@class,"q-card")][1]',
+    );
+    await linkedCard.waitFor({ timeout: 10000 });
+    await linkedCard
+      .getByText(`Company: ${companyUpdated}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+    await linkedCard
+      .getByText(`Position: ${positionUpdated}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+    await linkedCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(`Next: ${linkedAction}`, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
+
+    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
+    positionCard = page.locator('.q-card').filter({ hasText: positionUpdated }).first();
+    await positionCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(positionUpdated, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
+
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    companyCard = page.locator('.q-card').filter({ hasText: companyUpdated }).first();
+    await companyCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(companyUpdated, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
+
+    await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
+    await page.getByLabel('Full name').fill(recruiterInitial);
+    await page.getByLabel('Email').fill(`smoke-${runId}@example.com`);
+    await page.getByRole('button', { name: 'Save recruiter' }).click();
+    await page.getByText(recruiterInitial, { exact: true }).waitFor({ timeout: 10000 });
+
+    let recruiterCard = page.locator('.q-card').filter({ hasText: recruiterInitial }).first();
+    await recruiterCard.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Full name').fill(recruiterUpdated);
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await page.getByText(recruiterUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    recruiterCard = page.locator('.q-card').filter({ hasText: recruiterUpdated }).first();
+    await recruiterCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(recruiterUpdated, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
 
     await browser.close();
     await cleanUp();

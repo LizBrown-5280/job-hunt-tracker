@@ -5,7 +5,9 @@ export type ApplicationPriority = 'Low' | 'Medium' | 'High';
 export interface ApplicationRecord {
   id?: number;
   company: string;
+  companyId?: number | null;
   role: string;
+  positionId?: number | null;
   status: ApplicationStatus;
   appliedDate: string;
   nextAction: string;
