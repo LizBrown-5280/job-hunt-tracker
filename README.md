@@ -1,5 +1,8 @@
 # Job Hunt Tracker
 
+[![Reliability Smoke](../../actions/workflows/reliability-smoke.yml/badge.svg)](../../actions/workflows/reliability-smoke.yml)
+[![Typecheck](../../actions/workflows/typecheck.yml/badge.svg)](../../actions/workflows/typecheck.yml)
+
 ## Install the dependencies
 
 ```bash
