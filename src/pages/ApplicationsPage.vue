@@ -346,7 +346,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
@@ -423,15 +423,51 @@ const positionTitleById = computed(() =>
   }, {}),
 );
 
+let isReconcilingLinks = false;
+
+async function reconcileLinkedEntities() {
+  if (isReconcilingLinks) {
+    return;
+  }
+
+  isReconcilingLinks = true;
+
+  try {
+    companiesStore.init();
+    positionsStore.init();
+    await store.reconcileLinkedEntities(
+      companiesStore.items.map((company) => company.id),
+      positionsStore.items.map((position) => position.id),
+    );
+  } finally {
+    isReconcilingLinks = false;
+  }
+}
+
+function onWindowFocus() {
+  void reconcileLinkedEntities();
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState !== 'visible') {
+    return;
+  }
+
+  void reconcileLinkedEntities();
+}
+
 onMounted(async () => {
   store.resetFilters();
-  companiesStore.init();
-  positionsStore.init();
   await store.init();
-  await store.reconcileLinkedEntities(
-    companiesStore.items.map((company) => company.id),
-    positionsStore.items.map((position) => position.id),
-  );
+  await reconcileLinkedEntities();
+
+  window.addEventListener('focus', onWindowFocus);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('focus', onWindowFocus);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
 });
 
 async function submitApplication() {
