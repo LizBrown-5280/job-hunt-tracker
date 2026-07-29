@@ -523,6 +523,54 @@ export const useApplicationsStore = defineStore('applications', {
       persistProfile(this.profile);
     },
 
+    async reconcileLinkedEntities(validCompanyIds: number[], validPositionIds: number[]) {
+      const companyIds = new Set(validCompanyIds);
+      const positionIds = new Set(validPositionIds);
+      const now = new Date().toISOString();
+      let hasChanges = false;
+
+      this.items = this.items.map((item) => {
+        const currentCompanyId = item.companyId ?? null;
+        const currentPositionId = item.positionId ?? null;
+        const nextCompanyId: number | null =
+          currentCompanyId != null && !companyIds.has(currentCompanyId) ? null : currentCompanyId;
+        const nextPositionId: number | null =
+          currentPositionId != null && !positionIds.has(currentPositionId)
+            ? null
+            : currentPositionId;
+
+        if (nextCompanyId === currentCompanyId && nextPositionId === currentPositionId) {
+          return item;
+        }
+
+        hasChanges = true;
+        return {
+          ...item,
+          companyId: nextCompanyId,
+          positionId: nextPositionId,
+          updatedAt: now,
+        };
+      });
+
+      if (!hasChanges) {
+        return;
+      }
+
+      await db.transaction('rw', db.applications, async () => {
+        for (const item of this.items) {
+          if (item.id == null) {
+            continue;
+          }
+
+          await db.applications.update(item.id, {
+            companyId: item.companyId ?? null,
+            positionId: item.positionId ?? null,
+            updatedAt: item.updatedAt,
+          });
+        }
+      });
+    },
+
     async exportBackup() {
       const applications = await db.applications.toArray();
       const exportedAt = new Date().toISOString();

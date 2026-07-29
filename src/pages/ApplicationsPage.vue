@@ -29,6 +29,12 @@
               class="q-mb-sm"
               @update:model-value="onCompanyLinkChange"
             />
+            <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
+              No companies yet. Create one first for reliable linking.
+              <template #action>
+                <q-btn flat color="primary" label="Open companies" @click="openCompaniesPage" />
+              </template>
+            </q-banner>
             <q-input
               v-model="store.draft.role"
               label="Role"
@@ -51,6 +57,12 @@
               class="q-mb-sm"
               @update:model-value="onPositionLinkChange"
             />
+            <q-banner v-if="!hasPositions" dense rounded class="q-mb-sm warning-banner">
+              No positions yet. Add one to connect applications to specific roles.
+              <template #action>
+                <q-btn flat color="primary" label="Open positions" @click="openPositionsPage" />
+              </template>
+            </q-banner>
             <q-select
               v-model="store.draft.status"
               :options="statusOptions"
@@ -267,6 +279,27 @@
                 <div v-if="item.nextAction" class="text-body2 q-mt-sm">
                   Next: {{ item.nextAction }}
                 </div>
+                <div
+                  v-if="item.companyId != null || item.positionId != null"
+                  class="row q-gutter-xs q-mt-xs"
+                >
+                  <q-btn
+                    v-if="item.companyId != null"
+                    size="xs"
+                    flat
+                    color="indigo"
+                    label="Open companies"
+                    @click="openCompaniesPage"
+                  />
+                  <q-btn
+                    v-if="item.positionId != null"
+                    size="xs"
+                    flat
+                    color="deep-orange"
+                    label="Open positions"
+                    @click="openPositionsPage"
+                  />
+                </div>
                 <div v-if="item.notes" class="note-block q-mt-sm">
                   <div class="text-caption text-grey-6">Notes</div>
                   <div class="text-caption text-grey-7">“{{ item.notes }}”</div>
@@ -315,6 +348,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useQuasar } from 'quasar';
+import { useRouter } from 'vue-router';
 import { useApplicationsStore } from '@/stores/applications';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
@@ -322,6 +357,8 @@ import { usePositionsStore } from '@/stores/positions';
 const store = useApplicationsStore();
 const companiesStore = useCompaniesStore();
 const positionsStore = usePositionsStore();
+const $q = useQuasar();
+const router = useRouter();
 const { items, filteredItems, editingId } = storeToRefs(store);
 const statusOptions = ['Wishlist', 'Applied', 'Interview', 'Offer', 'Rejected', 'Ghosted'] as const;
 const priorityOptions = ['Low', 'Medium', 'High'] as const;
@@ -357,6 +394,7 @@ const companyOptions = computed(() =>
       value: company.id,
     })),
 );
+const hasCompanies = computed(() => companyOptions.value.length > 0);
 
 const companyNameById = computed(() =>
   companiesStore.items.reduce<Record<number, string>>((acc, company) => {
@@ -376,6 +414,7 @@ const positionOptions = computed(() => {
     value: position.id,
   }));
 });
+const hasPositions = computed(() => positionOptions.value.length > 0);
 
 const positionTitleById = computed(() =>
   positionsStore.items.reduce<Record<number, string>>((acc, position) => {
@@ -384,14 +423,19 @@ const positionTitleById = computed(() =>
   }, {}),
 );
 
-onMounted(() => {
+onMounted(async () => {
   store.resetFilters();
-  void store.init();
   companiesStore.init();
   positionsStore.init();
+  await store.init();
+  await store.reconcileLinkedEntities(
+    companiesStore.items.map((company) => company.id),
+    positionsStore.items.map((position) => position.id),
+  );
 });
 
 async function submitApplication() {
+  validateDraftLinks();
   await store.save();
 }
 
@@ -435,6 +479,26 @@ function onPositionLinkChange(value: number | null) {
       store.draft.company = company.name;
     }
   }
+}
+
+function validateDraftLinks() {
+  if (store.draft.companyId != null && !companyNameById.value[store.draft.companyId]) {
+    store.draft.companyId = null;
+    $q.notify({ type: 'warning', message: 'Linked company was removed. Link cleared.' });
+  }
+
+  if (store.draft.positionId != null && !positionTitleById.value[store.draft.positionId]) {
+    store.draft.positionId = null;
+    $q.notify({ type: 'warning', message: 'Linked position was removed. Link cleared.' });
+  }
+}
+
+function openCompaniesPage() {
+  void router.push('/companies');
+}
+
+function openPositionsPage() {
+  void router.push('/positions');
 }
 
 function formatTimestamp(value: string) {
@@ -509,5 +573,10 @@ function getStatusColor(status: string) {
 .heart-rating-btn {
   min-width: 18px;
   min-height: 18px;
+}
+
+.warning-banner {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
 }
 </style>
