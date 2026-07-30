@@ -69,6 +69,28 @@ This repository is configured to deploy to Firebase Hosting for:
 2. `firebase.json`
 3. `.github/workflows/firebase-hosting.yml`
 
+## Feature Backlog Workflow
+
+Use GitHub Issues as the source of truth for feature planning and execution.
+
+1. Substantial work: `.github/ISSUE_TEMPLATE/feature-request.md`
+2. Small scoped work: `.github/ISSUE_TEMPLATE/small-enhancement.md`
+
+Recommended labels:
+
+1. `feature`
+2. `enhancement`
+3. `priority-high`, `priority-medium`, `priority-low`
+4. `area-applications`, `area-companies`, `area-positions`, `area-recruiters`
+
+## Deferred Smoke Workflow
+
+When reliability smoke is intentionally skipped for velocity, log it immediately.
+
+1. Create a tracking issue with `.github/ISSUE_TEMPLATE/deferred-smoke-check.md`
+2. Add or update a local entry in `docs/deferred-smoke-log.md`
+3. Before release, close all pending deferred smoke entries
+
 ### Local Manual Deploy (optional)
 
 ```bash
