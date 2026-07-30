@@ -155,19 +155,33 @@
                 dense
                 class="q-mb-sm"
               />
-              <q-select
-                v-model="store.draft.companyId"
-                :options="companyOptions"
-                option-label="label"
-                option-value="value"
-                label="Hiring for company (optional)"
-                filled
-                dense
-                emit-value
-                map-options
-                clearable
-                class="q-mb-sm"
-              />
+              <div class="row q-col-gutter-sm items-center q-mb-sm">
+                <div class="col">
+                  <q-select
+                    v-model="store.draft.companyId"
+                    :options="companyOptions"
+                    option-label="label"
+                    option-value="value"
+                    label="Hiring for company (optional)"
+                    filled
+                    dense
+                    emit-value
+                    map-options
+                    clearable
+                  />
+                </div>
+                <div class="col-auto">
+                  <q-btn
+                    class="linked-add-btn"
+                    outline
+                    color="primary"
+                    size="sm"
+                    icon="business"
+                    label="Add New Company"
+                    @click="openCompaniesPage"
+                  />
+                </div>
+              </div>
               <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
                 No companies yet. Create one to link this recruiting firm to a hiring company.
                 <template #action>
@@ -610,5 +624,10 @@ function clearDeepLinkQuery() {
 .warning-banner {
   border: 1px solid #fcd34d;
   background: #fffbeb;
+}
+
+.linked-add-btn {
+  min-width: 176px;
+  justify-content: center;
 }
 </style>

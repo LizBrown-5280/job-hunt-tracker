@@ -236,7 +236,7 @@ export const useRecruitersStore = defineStore('recruiters', {
     editingId: null as number | null,
     searchQuery: '',
     filterRelationship: 'All',
-    archiveView: 'Active' as 'Active' | 'Archived' | 'All',
+    archiveView: 'Active',
   }),
 
   getters: {
