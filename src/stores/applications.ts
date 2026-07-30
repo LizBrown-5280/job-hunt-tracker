@@ -797,7 +797,11 @@ export const useApplicationsStore = defineStore('applications', {
       });
     },
 
-    async reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
+    async reassignCompanyReferences(
+      fromCompanyId: number,
+      toCompanyId: number | null,
+      toCompanyName?: string,
+    ) {
       const now = new Date().toISOString();
       let changed = false;
 
@@ -811,6 +815,10 @@ export const useApplicationsStore = defineStore('applications', {
         return {
           ...item,
           companyId: toCompanyId,
+          company:
+            toCompanyId != null && typeof toCompanyName === 'string' && toCompanyName.trim()
+              ? toCompanyName.trim()
+              : item.company,
           updatedAt: now,
         };
       });
@@ -827,6 +835,47 @@ export const useApplicationsStore = defineStore('applications', {
 
           await db.applications.update(item.id, {
             companyId: item.companyId ?? null,
+            company: item.company,
+            updatedAt: item.updatedAt,
+          });
+        }
+      });
+    },
+
+    async syncCompanyNameReferences(companyId: number, companyName: string) {
+      const normalizedName = companyName.trim();
+      if (!normalizedName) {
+        return;
+      }
+
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        if (item.companyId !== companyId || item.company === normalizedName) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          company: normalizedName,
+          updatedAt: now,
+        };
+      });
+
+      if (!changed) {
+        return;
+      }
+
+      await db.transaction('rw', db.applications, async () => {
+        for (const item of this.items) {
+          if (item.id == null || item.companyId !== companyId) {
+            continue;
+          }
+
+          await db.applications.update(item.id, {
+            company: item.company,
             updatedAt: item.updatedAt,
           });
         }

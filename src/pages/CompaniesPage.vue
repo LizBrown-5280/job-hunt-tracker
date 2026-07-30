@@ -206,8 +206,19 @@ onMounted(async () => {
   await applicationsStore.init();
 });
 
-function submitCompany() {
+async function submitCompany() {
+  const currentEditingId = editingId.value;
+  const nextName = store.draft.name.trim();
+  const previousName =
+    currentEditingId != null
+      ? (store.items.find((item) => item.id === currentEditingId)?.name.trim() ?? '')
+      : '';
+
   store.save();
+
+  if (currentEditingId != null && nextName && nextName !== previousName) {
+    await applicationsStore.syncCompanyNameReferences(currentEditingId, nextName);
+  }
 }
 
 async function tryRemoveCompany(companyId: number, companyName: string) {
@@ -266,7 +277,11 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
 
   positionsStore.reassignCompanyReferences(companyId, targetCompanyId);
   recruitersStore.reassignCompanyReferences(companyId, targetCompanyId);
-  await applicationsStore.reassignCompanyReferences(companyId, targetCompanyId);
+  await applicationsStore.reassignCompanyReferences(
+    companyId,
+    targetCompanyId,
+    getCompanyName(targetCompanyId),
+  );
   store.remove(companyId);
   $q.notify({
     type: 'positive',
