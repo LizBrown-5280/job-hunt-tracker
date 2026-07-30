@@ -25,3 +25,9 @@ I'm given you a name. I hope you are amenable to it. You are now "TARS", though 
 
 1. If backlog items exist in this repository, use them to guide prioritization.
 2. If an intake template exists for a feature, use it to structure implementation and acceptance criteria.
+
+## Git Workflow
+
+1. Never attempt to push to GitHub from terminal commands.
+2. Only perform local git steps (status, add, commit) unless explicitly directed otherwise.
+3. After local commits, provide a short sync message so the maintainer can push with the VS Code Sync button.
