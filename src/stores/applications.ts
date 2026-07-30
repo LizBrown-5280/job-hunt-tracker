@@ -479,6 +479,46 @@ function hasStoredItems(key: string) {
   }
 }
 
+function loadStoredArray<T>(key: string): T[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const raw = window.localStorage.getItem(key);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getStoredCompanyById(companyId: number | null) {
+  if (companyId == null) {
+    return null;
+  }
+
+  return (
+    loadStoredArray<CompanyRecord>(COMPANIES_STORAGE_KEY).find((item) => item.id === companyId) ??
+    null
+  );
+}
+
+function getStoredPositionById(positionId: number | null) {
+  if (positionId == null) {
+    return null;
+  }
+
+  return (
+    loadStoredArray<PositionRecord>(POSITIONS_STORAGE_KEY).find((item) => item.id === positionId) ??
+    null
+  );
+}
+
 function isDeveloperModeEnabled() {
   if (typeof window === 'undefined') {
     return false;
@@ -669,10 +709,28 @@ export const useApplicationsStore = defineStore('applications', {
 
     async save() {
       const now = new Date().toISOString();
+      const linkedPosition = getStoredPositionById(this.draft.positionId ?? null);
+      const linkedCompany = getStoredCompanyById(this.draft.companyId ?? null);
+      const linkedCompanyFromPosition =
+        linkedPosition?.companyId != null ? getStoredCompanyById(linkedPosition.companyId) : null;
+
+      const nextPositionId = linkedPosition?.id ?? this.draft.positionId ?? null;
+      const nextCompanyId =
+        linkedPosition?.companyId != null
+          ? linkedPosition.companyId
+          : (linkedCompany?.id ?? this.draft.companyId ?? null);
+      const nextRole = linkedPosition?.title.trim() || this.draft.role.trim();
+      const nextCompanyName =
+        linkedCompanyFromPosition?.name.trim() ||
+        linkedCompany?.name.trim() ||
+        this.draft.company.trim();
+
       const payload = {
         ...this.draft,
-        companyId: this.draft.companyId ?? null,
-        positionId: this.draft.positionId ?? null,
+        company: nextCompanyName,
+        role: nextRole,
+        companyId: nextCompanyId,
+        positionId: nextPositionId,
         status: this.draft.status,
         priority: this.draft.priority ?? 'Medium',
         followUpDate: this.draft.followUpDate ?? '',

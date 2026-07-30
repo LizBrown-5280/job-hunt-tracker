@@ -256,6 +256,32 @@ async function run() {
       .getByText(`Position: ${positionUpdated}`, { exact: true })
       .waitFor({ timeout: 10000 });
 
+    await linkedCard.getByRole('button', { name: 'Edit' }).click();
+    await page.getByRole('textbox', { name: 'Company' }).fill(`Manual Drift Co ${runId}`);
+    await page.getByRole('textbox', { name: 'Role' }).fill(`Manual Drift Role ${runId}`);
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await linkedActionText.waitFor({ timeout: 10000 });
+
+    await linkedCard.getByRole('button', { name: 'Edit' }).click();
+    const canonicalCompany = (
+      await page.getByRole('textbox', { name: 'Company' }).inputValue()
+    ).trim();
+    const canonicalRole = (await page.getByRole('textbox', { name: 'Role' }).inputValue()).trim();
+
+    if (canonicalCompany !== companyUpdated) {
+      throw new Error(
+        `Expected linked company value to normalize to "${companyUpdated}", received "${canonicalCompany}".`,
+      );
+    }
+
+    if (canonicalRole !== positionUpdated) {
+      throw new Error(
+        `Expected linked role value to normalize to "${positionUpdated}", received "${canonicalRole}".`,
+      );
+    }
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
     await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
     positionCard = getEntityCardByTitle(page, positionUpdated);
     await positionCard.getByRole('button', { name: 'Delete' }).click();
