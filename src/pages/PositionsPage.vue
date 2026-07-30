@@ -32,6 +32,30 @@
               </template>
             </q-banner>
             <q-select
+              v-model="store.draft.recruiterId"
+              :options="recruiterOptions"
+              option-label="label"
+              option-value="value"
+              label="Recruiting firm (optional)"
+              filled
+              dense
+              emit-value
+              map-options
+              clearable
+              class="q-mb-sm"
+            />
+            <q-banner v-if="!hasRecruiters" dense rounded class="q-mb-sm warning-banner">
+              No recruiting firms yet. Create one to attach this position.
+              <template #action>
+                <q-btn
+                  flat
+                  color="primary"
+                  label="Create recruiting firm"
+                  @click="openRecruitersPage"
+                />
+              </template>
+            </q-banner>
+            <q-select
               v-model="store.draft.status"
               :options="statusOptions"
               label="Status"
@@ -88,14 +112,24 @@
         <q-card class="q-pa-md">
           <div class="row items-center justify-between q-mb-md">
             <div class="text-h6">Positions</div>
-            <q-select
-              v-model="store.filterStatus"
-              :options="filterOptions"
-              label="Status filter"
-              dense
-              outlined
-              style="min-width: 170px"
-            />
+            <div class="row items-center q-gutter-sm">
+              <q-select
+                v-model="store.archiveView"
+                :options="archiveViewOptions"
+                label="Record state"
+                dense
+                outlined
+                style="min-width: 170px"
+              />
+              <q-select
+                v-model="store.filterStatus"
+                :options="filterOptions"
+                label="Status filter"
+                dense
+                outlined
+                style="min-width: 170px"
+              />
+            </div>
           </div>
 
           <q-input
@@ -123,6 +157,9 @@
                     <div class="text-caption text-grey-7">
                       {{ item.workMode }}
                     </div>
+                    <div v-if="getDisplayRecruiter(item)" class="text-caption text-grey-7">
+                      Recruiting firm: {{ getDisplayRecruiter(item) }}
+                    </div>
                     <div v-if="item.compensation" class="text-caption">{{ item.compensation }}</div>
                   </div>
                   <q-chip :color="statusColor(item.status)" text-color="white">{{
@@ -135,6 +172,17 @@
                 </div>
                 <div v-if="item.notes" class="text-caption text-grey-7 q-mt-sm notes-block">
                   {{ item.notes }}
+                </div>
+
+                <div v-if="getRecentLinkHistory(item).length" class="q-mt-sm">
+                  <div class="text-caption text-grey-7">Link history</div>
+                  <div
+                    v-for="entry in getRecentLinkHistory(item)"
+                    :key="`${entry.changedAt}-${entry.companyId ?? 'none'}-${entry.recruiterId ?? 'none'}-${entry.reason}`"
+                    class="text-caption text-grey-7"
+                  >
+                    {{ formatLinkHistoryEntry(entry) }}
+                  </div>
                 </div>
 
                 <div class="row items-center q-gutter-xs q-mt-sm">
@@ -155,6 +203,7 @@
 
                 <div class="row q-gutter-sm q-mt-sm">
                   <q-btn
+                    v-if="!item.archivedAt"
                     size="sm"
                     outline
                     color="primary"
@@ -162,11 +211,20 @@
                     @click="store.startEdit(item)"
                   />
                   <q-btn
+                    v-if="!item.archivedAt"
                     size="sm"
                     outline
                     color="negative"
-                    label="Delete"
+                    label="Archive"
                     @click="tryRemovePosition(item.id, item.title)"
+                  />
+                  <q-btn
+                    v-if="item.archivedAt"
+                    size="sm"
+                    outline
+                    color="positive"
+                    label="Restore"
+                    @click="store.restore(item.id)"
                   />
                 </div>
               </q-card-section>
@@ -185,6 +243,7 @@ import { useQuasar } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
+import { useRecruitersStore } from '@/stores/recruiters';
 import { useApplicationsStore } from '@/stores/applications';
 import {
   clearHandoffQuery,
@@ -194,10 +253,15 @@ import {
   restoreHandoffDraft,
   returnFromHandoffWithId,
 } from '@/composables/navigationHandoff';
-import type { PositionStatus, PositionWorkMode } from '@/types/networking';
+import type {
+  PositionLinkHistoryEntry,
+  PositionStatus,
+  PositionWorkMode,
+} from '@/types/networking';
 
 const store = usePositionsStore();
 const companiesStore = useCompaniesStore();
+const recruitersStore = useRecruitersStore();
 const applicationsStore = useApplicationsStore();
 const $q = useQuasar();
 const route = useRoute();
@@ -205,11 +269,12 @@ const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 const statusOptions: PositionStatus[] = ['Open', 'Interviewing', 'On Hold', 'Closed'];
 const filterOptions: Array<PositionStatus | 'All'> = ['All', ...statusOptions];
+const archiveViewOptions: Array<'Active' | 'Archived' | 'All'> = ['Active', 'Archived', 'All'];
 const workModeOptions: PositionWorkMode[] = ['Remote', 'On-site', 'Hybrid'];
 const POSITIONS_DRAFT_KEY = 'job-hunt-tracker-handoff-positions-draft-v1';
 
 const companyOptions = computed(() =>
-  companiesStore.items
+  companiesStore.activeItems
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((company) => ({
@@ -219,15 +284,36 @@ const companyOptions = computed(() =>
 );
 
 const companyNameById = computed(() => {
-  return companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+  return companiesStore.activeItems.reduce<Record<number, string>>((acc, company) => {
     acc[company.id] = company.name;
     return acc;
   }, {});
 });
 const hasCompanies = computed(() => companyOptions.value.length > 0);
 
+const recruiterOptions = computed(() => {
+  const sorted = recruitersStore.activeItems
+    .slice()
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+  return sorted.map((recruiter) => ({
+    label:
+      recruiter.companyId != null && companyNameById.value[recruiter.companyId]
+        ? `${recruiter.fullName} (${companyNameById.value[recruiter.companyId]})`
+        : recruiter.fullName,
+    value: recruiter.id,
+  }));
+});
+const recruiterNameById = computed(() => {
+  return recruitersStore.activeItems.reduce<Record<number, string>>((acc, recruiter) => {
+    acc[recruiter.id] = recruiter.fullName;
+    return acc;
+  }, {});
+});
+const hasRecruiters = computed(() => recruiterOptions.value.length > 0);
+
 const applicationCountByPositionId = computed(() => {
-  return applicationsStore.items.reduce<Record<number, number>>((acc, item) => {
+  return applicationsStore.activeItems.reduce<Record<number, number>>((acc, item) => {
     if (item.positionId == null) {
       return acc;
     }
@@ -240,6 +326,7 @@ const applicationCountByPositionId = computed(() => {
 onMounted(async () => {
   store.init();
   companiesStore.init();
+  recruitersStore.init();
   await applicationsStore.init();
 
   restoreHandoffState();
@@ -276,6 +363,17 @@ function openCompaniesPage() {
   navigateToCreateWithHandoff(router, route.path, '/companies', POSITIONS_DRAFT_KEY, 'companyId');
 }
 
+function openRecruitersPage() {
+  persistDraftForHandoff();
+  navigateToCreateWithHandoff(
+    router,
+    route.path,
+    '/recruiters',
+    POSITIONS_DRAFT_KEY,
+    'recruiterId',
+  );
+}
+
 function persistDraftForHandoff() {
   persistHandoffDraft(POSITIONS_DRAFT_KEY, store.draft);
 }
@@ -286,6 +384,8 @@ function restoreHandoffState() {
   const handoffResult = getHandoffResult(route);
   if (handoffResult?.field === 'companyId') {
     store.draft.companyId = handoffResult.id;
+  } else if (handoffResult?.field === 'recruiterId') {
+    store.draft.recruiterId = handoffResult.id;
   }
 
   clearHandoffQuery(route, router);
@@ -298,7 +398,7 @@ function returnFromHandoff(positionId: number | null) {
 async function tryRemovePosition(positionId: number, positionTitle: string) {
   await applicationsStore.init();
 
-  const linkedApplications = applicationsStore.items.filter(
+  const linkedApplications = applicationsStore.activeItems.filter(
     (item) => item.positionId === positionId,
   ).length;
 
@@ -317,7 +417,7 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
     store.remove(positionId);
     $q.notify({
       type: 'positive',
-      message: `Position deleted and ${linkedApplications} linked application${linkedApplications === 1 ? '' : 's'} updated.`,
+      message: `Position archived and ${linkedApplications} linked application${linkedApplications === 1 ? '' : 's'} updated.`,
     });
     return;
   }
@@ -335,12 +435,12 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
   store.remove(positionId);
   $q.notify({
     type: 'positive',
-    message: `Position deleted and links reassigned to ${getPositionTitle(targetPositionId)}.`,
+    message: `Position archived and links reassigned to ${getPositionTitle(targetPositionId)}.`,
   });
 }
 
 function getPositionTitle(id: number) {
-  return store.items.find((item) => item.id === id)?.title ?? 'selected position';
+  return store.activeItems.find((item) => item.id === id)?.title ?? 'selected position';
 }
 
 function askPositionDeleteResolution(positionTitle: string, linkedApplications: number) {
@@ -352,8 +452,8 @@ function askPositionDeleteResolution(positionTitle: string, linkedApplications: 
         type: 'radio',
         model: 'reassign',
         items: [
-          { label: 'Reassign linked applications, then delete position', value: 'reassign' },
-          { label: 'Clear position links, then delete position', value: 'clear' },
+          { label: 'Reassign linked applications, then archive position', value: 'reassign' },
+          { label: 'Clear position links, then archive position', value: 'clear' },
         ],
       },
       ok: { label: 'Continue', color: 'primary' },
@@ -367,7 +467,7 @@ function askPositionDeleteResolution(positionTitle: string, linkedApplications: 
 }
 
 function askPositionReassignTarget(currentPositionId: number) {
-  const candidates = store.items
+  const candidates = store.activeItems
     .filter((item) => item.id !== currentPositionId)
     .sort((a, b) => a.title.localeCompare(b.title));
 
@@ -391,7 +491,7 @@ function askPositionReassignTarget(currentPositionId: number) {
           value: String(item.id),
         })),
       },
-      ok: { label: 'Reassign and delete', color: 'primary' },
+      ok: { label: 'Reassign and archive', color: 'primary' },
       cancel: { label: 'Cancel', flat: true },
       persistent: true,
     })
@@ -415,6 +515,57 @@ function statusColor(status: PositionStatus) {
     default:
       return 'grey-7';
   }
+}
+
+function getDisplayRecruiter(item: (typeof store.items)[number]) {
+  if (item.recruiterId == null) {
+    return '';
+  }
+
+  return recruiterNameById.value[item.recruiterId] ?? '';
+}
+
+function getRecentLinkHistory(item: (typeof store.items)[number]) {
+  const history = Array.isArray(item.linkHistory) ? item.linkHistory : [];
+  return history.slice(-3).reverse();
+}
+
+function formatLinkHistoryEntry(entry: PositionLinkHistoryEntry) {
+  const companyLabel =
+    entry.companyId != null
+      ? (companyNameById.value[entry.companyId] ?? `Company #${entry.companyId}`)
+      : 'No company';
+  const recruiterLabel =
+    entry.recruiterId != null
+      ? (recruiterNameById.value[entry.recruiterId] ?? `Recruiting firm #${entry.recruiterId}`)
+      : 'No recruiting firm';
+
+  return `${formatLinkReason(entry.reason)} • ${companyLabel} • ${recruiterLabel} • ${formatHistoryDate(entry.changedAt)}`;
+}
+
+function formatLinkReason(reason: string) {
+  switch (reason) {
+    case 'initial':
+      return 'Created';
+    case 'company-reassigned':
+      return 'Company reassigned';
+    default:
+      return 'Link updated';
+  }
+}
+
+function formatHistoryDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unknown date';
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function openApplicationsForPosition(title: string) {

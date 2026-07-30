@@ -19,6 +19,7 @@ export interface ApplicationRecord {
   favoriteRating?: number;
   previousFavoriteRating?: number;
   favoriteUpdatedAt?: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

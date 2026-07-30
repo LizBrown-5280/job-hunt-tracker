@@ -183,6 +183,14 @@
                 style="min-width: 180px"
                 @update:model-value="onFilterChange"
               />
+              <q-select
+                v-model="store.search.archiveView"
+                :options="archiveViewOptions"
+                label="Record state"
+                dense
+                outlined
+                style="min-width: 170px"
+              />
               <q-btn
                 v-if="store.search.filter === 'Favorites'"
                 flat
@@ -210,7 +218,7 @@
             <div class="col-12 col-sm-6 col-md-3">
               <q-card bordered class="q-pa-sm full-height">
                 <div class="text-caption text-grey-7">Total</div>
-                <div class="text-h6">{{ items.length }}</div>
+                <div class="text-h6">{{ activeItems.length }}</div>
               </q-card>
             </div>
             <div class="col-12 col-sm-6 col-md-3">
@@ -221,7 +229,7 @@
               >
                 <div class="text-caption" style="color: #1e88e5">Interviewing</div>
                 <div class="text-h6" style="color: #1e88e5">
-                  {{ items.filter((item) => item.status === 'Interview').length }}
+                  {{ activeItems.filter((item) => item.status === 'Interview').length }}
                 </div>
               </q-card>
             </div>
@@ -238,7 +246,10 @@
                   Needs follow-up
                 </div>
                 <div class="text-h6" style="color: #f59e0b">
-                  {{ items.filter((item) => item.nextAction && item.status !== 'Ghosted').length }}
+                  {{
+                    activeItems.filter((item) => item.nextAction && item.status !== 'Ghosted')
+                      .length
+                  }}
                 </div>
               </q-card>
             </div>
@@ -250,7 +261,7 @@
               >
                 <div class="text-caption" style="color: #c62828">Closed</div>
                 <div class="text-h6" style="color: #c62828">
-                  {{ items.filter((item) => item.status === 'Ghosted').length }}
+                  {{ activeItems.filter((item) => item.status === 'Ghosted').length }}
                 </div>
               </q-card>
             </div>
@@ -339,6 +350,7 @@
                 <div class="row items-center justify-between q-mt-sm">
                   <div class="row q-gutter-sm">
                     <q-btn
+                      v-if="!item.archivedAt"
                       size="sm"
                       outline
                       color="primary"
@@ -346,11 +358,20 @@
                       @click="store.startEdit(item)"
                     />
                     <q-btn
+                      v-if="!item.archivedAt"
                       size="sm"
                       outline
                       color="negative"
-                      label="Delete"
+                      label="Archive"
                       @click="store.remove(item.id ?? 0)"
+                    />
+                    <q-btn
+                      v-if="item.archivedAt"
+                      size="sm"
+                      outline
+                      color="positive"
+                      label="Restore"
+                      @click="store.restore(item.id ?? 0)"
                     />
                   </div>
                   <div class="row items-center heart-rating-row">
@@ -402,10 +423,11 @@ const recruitersStore = useRecruitersStore();
 const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
-const { items, filteredItems, editingId } = storeToRefs(store);
+const { activeItems, filteredItems, editingId } = storeToRefs(store);
 const statusOptions = ['Wishlist', 'Applied', 'Interview', 'Offer', 'Rejected', 'Ghosted'] as const;
 const priorityOptions = ['Low', 'Medium', 'High'] as const;
 const filterOptions = ['All', 'Favorites', ...statusOptions] as const;
+const archiveViewOptions = ['Active', 'Archived', 'All'] as const;
 const APPLICATIONS_DRAFT_KEY = 'job-hunt-tracker-handoff-applications-draft-v1';
 const selectedFilterLabel = computed(() => {
   if (store.search.filter !== 'Favorites') {
@@ -417,7 +439,10 @@ const selectedFilterLabel = computed(() => {
     : 'Favorites (low to high)';
 });
 const hasActiveFilters = computed(
-  () => Boolean(store.search.query.trim()) || store.search.filter !== 'All',
+  () =>
+    Boolean(store.search.query.trim()) ||
+    store.search.filter !== 'All' ||
+    store.search.archiveView !== 'Active',
 );
 const hasDraftContent = computed(
   () =>
@@ -431,7 +456,7 @@ const hasDraftContent = computed(
 );
 
 const companyOptions = computed(() =>
-  companiesStore.items
+  companiesStore.activeItems
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((company) => ({
@@ -442,14 +467,14 @@ const companyOptions = computed(() =>
 const hasCompanies = computed(() => companyOptions.value.length > 0);
 
 const companyNameById = computed(() =>
-  companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+  companiesStore.activeItems.reduce<Record<number, string>>((acc, company) => {
     acc[company.id] = company.name;
     return acc;
   }, {}),
 );
 
 const positionOptions = computed(() => {
-  const sorted = positionsStore.items.slice().sort((a, b) => a.title.localeCompare(b.title));
+  const sorted = positionsStore.activeItems.slice().sort((a, b) => a.title.localeCompare(b.title));
 
   return sorted.map((position) => ({
     label:
@@ -462,7 +487,9 @@ const positionOptions = computed(() => {
 const hasPositions = computed(() => positionOptions.value.length > 0);
 
 const recruiterOptions = computed(() => {
-  const base = recruitersStore.items.slice().sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const base = recruitersStore.activeItems
+    .slice()
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
 
   const filtered =
     store.draft.companyId != null
@@ -480,14 +507,14 @@ const recruiterOptions = computed(() => {
 const hasRecruiters = computed(() => recruiterOptions.value.length > 0);
 
 const positionTitleById = computed(() =>
-  positionsStore.items.reduce<Record<number, string>>((acc, position) => {
+  positionsStore.activeItems.reduce<Record<number, string>>((acc, position) => {
     acc[position.id] = position.title;
     return acc;
   }, {}),
 );
 
 const recruiterNameById = computed(() =>
-  recruitersStore.items.reduce<Record<number, string>>((acc, recruiter) => {
+  recruitersStore.activeItems.reduce<Record<number, string>>((acc, recruiter) => {
     acc[recruiter.id] = recruiter.fullName;
     return acc;
   }, {}),
@@ -507,9 +534,9 @@ async function reconcileLinkedEntities() {
     positionsStore.init();
     recruitersStore.init();
     await store.reconcileLinkedEntities(
-      companiesStore.items.map((company) => company.id),
-      positionsStore.items.map((position) => position.id),
-      recruitersStore.items.map((recruiter) => recruiter.id),
+      companiesStore.activeItems.map((company) => company.id),
+      positionsStore.activeItems.map((position) => position.id),
+      recruitersStore.activeItems.map((recruiter) => recruiter.id),
     );
   } finally {
     isReconcilingLinks = false;
@@ -568,7 +595,7 @@ function onCompanyLinkChange(value: number | null) {
     return;
   }
 
-  const company = companiesStore.items.find((item) => item.id === value);
+  const company = companiesStore.activeItems.find((item) => item.id === value);
   if (!company) {
     return;
   }
@@ -581,7 +608,7 @@ function onPositionLinkChange(value: number | null) {
     return;
   }
 
-  const position = positionsStore.items.find((item) => item.id === value);
+  const position = positionsStore.activeItems.find((item) => item.id === value);
   if (!position) {
     return;
   }
@@ -590,7 +617,7 @@ function onPositionLinkChange(value: number | null) {
 
   if (position.companyId != null) {
     store.draft.companyId = position.companyId;
-    const company = companiesStore.items.find((item) => item.id === position.companyId);
+    const company = companiesStore.activeItems.find((item) => item.id === position.companyId);
     if (company) {
       store.draft.company = company.name;
     }
@@ -602,14 +629,14 @@ function onRecruiterLinkChange(value: number | null) {
     return;
   }
 
-  const recruiter = recruitersStore.items.find((item) => item.id === value);
+  const recruiter = recruitersStore.activeItems.find((item) => item.id === value);
   if (!recruiter) {
     return;
   }
 
   if (recruiter.companyId != null) {
     store.draft.companyId = recruiter.companyId;
-    const company = companiesStore.items.find((item) => item.id === recruiter.companyId);
+    const company = companiesStore.activeItems.find((item) => item.id === recruiter.companyId);
     if (company) {
       store.draft.company = company.name;
     }

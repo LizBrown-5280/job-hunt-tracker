@@ -198,14 +198,24 @@
         <q-card class="q-pa-md">
           <div class="row items-center justify-between q-mb-md">
             <div class="text-h6">Recruiting Firms</div>
-            <q-select
-              v-model="store.filterRelationship"
-              :options="filterOptions"
-              label="Relationship"
-              dense
-              outlined
-              style="min-width: 170px"
-            />
+            <div class="row items-center q-gutter-sm">
+              <q-select
+                v-model="store.archiveView"
+                :options="archiveViewOptions"
+                label="Record state"
+                dense
+                outlined
+                style="min-width: 170px"
+              />
+              <q-select
+                v-model="store.filterRelationship"
+                :options="filterOptions"
+                label="Relationship"
+                dense
+                outlined
+                style="min-width: 170px"
+              />
+            </div>
           </div>
 
           <q-input
@@ -246,8 +256,35 @@
                   {{ item.notes }}
                 </div>
 
+                <div class="text-caption text-grey-7 q-mt-sm">
+                  Current positions tied: {{ getCurrentPositionCount(item.id) }}
+                </div>
+
+                <div v-if="getRecentCompanyLinkHistory(item).length" class="q-mt-xs">
+                  <div class="text-caption text-grey-7">Company link history</div>
+                  <div
+                    v-for="entry in getRecentCompanyLinkHistory(item)"
+                    :key="`${entry.changedAt}-${entry.companyId ?? 'none'}-${entry.reason}`"
+                    class="text-caption text-grey-7"
+                  >
+                    {{ formatCompanyLinkHistoryEntry(entry) }}
+                  </div>
+                </div>
+
+                <div v-if="getRecentPositionTieHistory(item.id).length" class="q-mt-xs">
+                  <div class="text-caption text-grey-7">Recent position ties</div>
+                  <div
+                    v-for="entry in getRecentPositionTieHistory(item.id)"
+                    :key="`${entry.changedAt}-${entry.positionTitle}-${entry.reason}`"
+                    class="text-caption text-grey-7"
+                  >
+                    {{ formatPositionTieHistoryEntry(entry) }}
+                  </div>
+                </div>
+
                 <div class="row q-gutter-sm q-mt-sm">
                   <q-btn
+                    v-if="!item.archivedAt"
                     size="sm"
                     outline
                     color="primary"
@@ -255,11 +292,20 @@
                     @click="store.startEdit(item)"
                   />
                   <q-btn
+                    v-if="!item.archivedAt"
                     size="sm"
                     outline
                     color="negative"
-                    label="Delete"
+                    label="Archive"
                     @click="store.remove(item.id)"
+                  />
+                  <q-btn
+                    v-if="item.archivedAt"
+                    size="sm"
+                    outline
+                    color="positive"
+                    label="Restore"
+                    @click="store.restore(item.id)"
                   />
                 </div>
               </q-card-section>
@@ -276,6 +322,7 @@ import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
+import { usePositionsStore } from '@/stores/positions';
 import { useRecruitersStore } from '@/stores/recruiters';
 import {
   clearHandoffQuery,
@@ -285,15 +332,21 @@ import {
   restoreHandoffDraft,
   returnFromHandoffWithId,
 } from '@/composables/navigationHandoff';
-import type { RecruiterRelationship } from '@/types/networking';
+import type {
+  PositionLinkHistoryEntry,
+  RecruiterLinkHistoryEntry,
+  RecruiterRelationship,
+} from '@/types/networking';
 
 const store = useRecruitersStore();
 const companiesStore = useCompaniesStore();
+const positionsStore = usePositionsStore();
 const route = useRoute();
 const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 const relationshipOptions: RecruiterRelationship[] = ['New', 'Active', 'Dormant'];
 const filterOptions: Array<RecruiterRelationship | 'All'> = ['All', ...relationshipOptions];
+const archiveViewOptions: Array<'Active' | 'Archived' | 'All'> = ['Active', 'Archived', 'All'];
 const RECRUITERS_DRAFT_KEY = 'job-hunt-tracker-handoff-recruiters-draft-v1';
 const industryOptions = [
   'Agriculture & Natural Resources',
@@ -318,7 +371,7 @@ const industryOptions = [
 const filteredIndustryOptions = ref([...industryOptions]);
 
 const companyOptions = computed(() =>
-  companiesStore.items
+  companiesStore.activeItems
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((company) => ({
@@ -328,7 +381,7 @@ const companyOptions = computed(() =>
 );
 
 const companyNameById = computed(() => {
-  return companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+  return companiesStore.activeItems.reduce<Record<number, string>>((acc, company) => {
     acc[company.id] = company.name;
     return acc;
   }, {});
@@ -338,6 +391,7 @@ const hasCompanies = computed(() => companyOptions.value.length > 0);
 onMounted(() => {
   store.init();
   companiesStore.init();
+  positionsStore.init();
 
   restoreHandoffState();
 
@@ -428,6 +482,87 @@ function formatPrimaryContact(item: (typeof store.items)[number]) {
 
 function displayPhone(item: (typeof store.items)[number]) {
   return item.phone || getPrimaryContact(item)?.phone || '';
+}
+
+function getCurrentPositionCount(recruiterId: number) {
+  return positionsStore.activeItems.filter((item) => item.recruiterId === recruiterId).length;
+}
+
+function getRecentCompanyLinkHistory(item: (typeof store.items)[number]) {
+  const history = Array.isArray(item.linkHistory) ? item.linkHistory : [];
+  return history.slice(-3).reverse();
+}
+
+function formatCompanyLinkHistoryEntry(entry: RecruiterLinkHistoryEntry) {
+  const companyLabel =
+    entry.companyId != null
+      ? (companyNameById.value[entry.companyId] ?? `Company #${entry.companyId}`)
+      : 'No company';
+
+  return `${formatLinkReason(entry.reason)} • ${companyLabel} • ${formatHistoryDate(entry.changedAt)}`;
+}
+
+type PositionTieHistoryEntry = {
+  changedAt: string;
+  positionTitle: string;
+  companyId: number | null;
+  reason: string;
+};
+
+function getRecentPositionTieHistory(recruiterId: number) {
+  const ties: PositionTieHistoryEntry[] = [];
+
+  positionsStore.items.forEach((position) => {
+    const history = Array.isArray(position.linkHistory) ? position.linkHistory : [];
+    history.forEach((entry: PositionLinkHistoryEntry) => {
+      if (entry.recruiterId !== recruiterId) {
+        return;
+      }
+
+      ties.push({
+        changedAt: entry.changedAt,
+        positionTitle: position.title,
+        companyId: entry.companyId,
+        reason: entry.reason,
+      });
+    });
+  });
+
+  return ties.sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, 3);
+}
+
+function formatPositionTieHistoryEntry(entry: PositionTieHistoryEntry) {
+  const companyLabel =
+    entry.companyId != null
+      ? (companyNameById.value[entry.companyId] ?? `Company #${entry.companyId}`)
+      : 'No company';
+
+  return `${entry.positionTitle} • ${companyLabel} • ${formatLinkReason(entry.reason)} • ${formatHistoryDate(entry.changedAt)}`;
+}
+
+function formatLinkReason(reason: string) {
+  switch (reason) {
+    case 'initial':
+      return 'Created';
+    case 'company-reassigned':
+      return 'Company reassigned';
+    default:
+      return 'Link updated';
+  }
+}
+
+function formatHistoryDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unknown date';
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function relationshipColor(relationship: RecruiterRelationship) {

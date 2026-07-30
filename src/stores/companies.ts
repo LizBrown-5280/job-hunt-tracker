@@ -156,6 +156,7 @@ function normalizeCompanyRecord(item: LegacyCompanyRecord): CompanyRecord {
     zip: typeof item.zip === 'string' ? item.zip.trim() : '',
     phone: typeof item.phone === 'string' ? item.phone.trim() : '',
     notes: typeof item.notes === 'string' ? item.notes : '',
+    archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : null,
     createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
     updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
   };
@@ -197,12 +198,27 @@ export const useCompaniesStore = defineStore('companies', {
     draft: createDraft(),
     editingId: null as number | null,
     searchQuery: '',
+    archiveView: 'Active',
   }),
 
   getters: {
+    activeItems: (state) => state.items.filter((item) => !item.archivedAt),
+
     filteredItems: (state) => {
       const query = state.searchQuery.trim().toLowerCase();
-      const sorted = [...state.items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const sorted = state.items
+        .filter((item) => {
+          if (state.archiveView === 'Active') {
+            return !item.archivedAt;
+          }
+
+          if (state.archiveView === 'Archived') {
+            return Boolean(item.archivedAt);
+          }
+
+          return true;
+        })
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
       if (!query) {
         return sorted;
@@ -306,6 +322,7 @@ export const useCompaniesStore = defineStore('companies', {
       this.items.unshift({
         id: nextId,
         ...payload,
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       });
@@ -315,12 +332,23 @@ export const useCompaniesStore = defineStore('companies', {
     },
 
     remove(id: number) {
-      this.items = this.items.filter((item) => item.id !== id);
+      const now = new Date().toISOString();
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: now, updatedAt: now } : item,
+      );
       persistCompanies(this.items);
 
       if (this.editingId === id) {
         this.resetDraft();
       }
+    },
+
+    restore(id: number) {
+      const now = new Date().toISOString();
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
+      );
+      persistCompanies(this.items);
     },
 
     addImportantNameRow() {

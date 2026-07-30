@@ -102,7 +102,7 @@
         <q-card bordered class="q-pa-md section-card">
           <div class="text-h6 q-mb-md">Favorite rating distribution</div>
           <div class="text-caption text-grey-7 q-mb-md">
-            {{ ratedCount }} rated of {{ items.length }} total applications
+            {{ ratedCount }} rated of {{ activeItems.length }} total applications
           </div>
 
           <div
@@ -213,15 +213,15 @@ const store = useApplicationsStore();
 const companiesStore = useCompaniesStore();
 const positionsStore = usePositionsStore();
 const router = useRouter();
-const { items } = storeToRefs(store);
+const { activeItems } = storeToRefs(store);
 const companyNameById = computed(() =>
-  companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+  companiesStore.activeItems.reduce<Record<number, string>>((acc, company) => {
     acc[company.id] = company.name;
     return acc;
   }, {}),
 );
 const positionTitleById = computed(() =>
-  positionsStore.items.reduce<Record<number, string>>((acc, position) => {
+  positionsStore.activeItems.reduce<Record<number, string>>((acc, position) => {
     acc[position.id] = position.title;
     return acc;
   }, {}),
@@ -229,16 +229,19 @@ const positionTitleById = computed(() =>
 
 const activeCount = computed(
   () =>
-    items.value.filter((item) => item.status !== 'Rejected' && item.status !== 'Ghosted').length,
+    activeItems.value.filter((item) => item.status !== 'Rejected' && item.status !== 'Ghosted')
+      .length,
 );
 
-const offerCount = computed(() => items.value.filter((item) => item.status === 'Offer').length);
+const offerCount = computed(
+  () => activeItems.value.filter((item) => item.status === 'Offer').length,
+);
 
 const followUpDueCount = computed(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  return items.value.filter((item) => {
+  return activeItems.value.filter((item) => {
     if (!item.followUpDate) {
       return false;
     }
@@ -254,20 +257,20 @@ const followUpDueCount = computed(() => {
 });
 
 const ratedCount = computed(
-  () => items.value.filter((item) => (item.favoriteRating ?? 0) > 0).length,
+  () => activeItems.value.filter((item) => (item.favoriteRating ?? 0) > 0).length,
 );
 
 const averageFavoriteScore = computed(() => {
-  if (items.value.length === 0) {
+  if (activeItems.value.length === 0) {
     return '0.0';
   }
 
-  const total = items.value.reduce((sum, item) => sum + (item.favoriteRating ?? 0), 0);
-  return (total / items.value.length).toFixed(1);
+  const total = activeItems.value.reduce((sum, item) => sum + (item.favoriteRating ?? 0), 0);
+  return (total / activeItems.value.length).toFixed(1);
 });
 
 const topPicks = computed(() => {
-  return items.value
+  return activeItems.value
     .filter((item) => item.status !== 'Rejected' && item.status !== 'Ghosted')
     .slice()
     .sort((a, b) => {
@@ -284,10 +287,10 @@ const topPicks = computed(() => {
 });
 
 const ratingRows = computed(() => {
-  const total = items.value.length || 1;
+  const total = activeItems.value.length || 1;
 
   return [5, 4, 3, 2, 1, 0].map((rating) => {
-    const count = items.value.filter((item) => (item.favoriteRating ?? 0) === rating).length;
+    const count = activeItems.value.filter((item) => (item.favoriteRating ?? 0) === rating).length;
     const ratio = count / total;
     const percent = Math.round(ratio * 100);
 
@@ -301,7 +304,7 @@ const ratingRows = computed(() => {
 });
 
 const upcomingFollowUps = computed(() => {
-  return items.value
+  return activeItems.value
     .filter((item) => Boolean(item.followUpDate))
     .slice()
     .sort((a, b) => (a.followUpDate ?? '').localeCompare(b.followUpDate ?? ''))
@@ -309,7 +312,7 @@ const upcomingFollowUps = computed(() => {
 });
 
 const decisionsThisWeek = computed(() => {
-  return items.value
+  return activeItems.value
     .filter((item) => {
       if (item.status === 'Rejected' || item.status === 'Ghosted') {
         return false;

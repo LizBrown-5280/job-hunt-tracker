@@ -202,14 +202,24 @@
         <q-card class="q-pa-md">
           <div class="row items-center justify-between q-mb-md">
             <div class="text-h6">Companies</div>
-            <q-btn
-              v-if="store.searchQuery"
-              flat
-              dense
-              color="grey-7"
-              label="Clear search"
-              @click="store.searchQuery = ''"
-            />
+            <div class="row items-center q-gutter-sm">
+              <q-select
+                v-model="store.archiveView"
+                :options="archiveViewOptions"
+                label="Record state"
+                dense
+                outlined
+                style="min-width: 170px"
+              />
+              <q-btn
+                v-if="store.searchQuery"
+                flat
+                dense
+                color="grey-7"
+                label="Clear search"
+                @click="store.searchQuery = ''"
+              />
+            </div>
           </div>
 
           <q-input
@@ -262,6 +272,28 @@
                   {{ item.notes }}
                 </div>
 
+                <div v-if="getRecentRecruiterTieHistory(item.id).length" class="q-mt-sm">
+                  <div class="text-caption text-grey-7">Recent recruiter ties</div>
+                  <div
+                    v-for="entry in getRecentRecruiterTieHistory(item.id)"
+                    :key="`${entry.changedAt}-${entry.recruiterName}-${entry.reason}`"
+                    class="text-caption text-grey-7"
+                  >
+                    {{ formatRecruiterTieHistoryEntry(entry) }}
+                  </div>
+                </div>
+
+                <div v-if="getRecentPositionTieHistory(item.id).length" class="q-mt-xs">
+                  <div class="text-caption text-grey-7">Recent position ties</div>
+                  <div
+                    v-for="entry in getRecentPositionTieHistory(item.id)"
+                    :key="`${entry.changedAt}-${entry.positionTitle}-${entry.reason}`"
+                    class="text-caption text-grey-7"
+                  >
+                    {{ formatPositionTieHistoryEntry(entry) }}
+                  </div>
+                </div>
+
                 <div class="row items-center q-gutter-xs q-mt-sm">
                   <q-chip size="sm" outline color="primary">
                     {{ positionCountByCompanyId[item.id] ?? 0 }} positions
@@ -300,6 +332,7 @@
 
                 <div class="row q-gutter-sm q-mt-sm">
                   <q-btn
+                    v-if="!item.archivedAt"
                     size="sm"
                     outline
                     color="primary"
@@ -307,11 +340,20 @@
                     @click="store.startEdit(item)"
                   />
                   <q-btn
+                    v-if="!item.archivedAt"
                     size="sm"
                     outline
                     color="negative"
-                    label="Delete"
+                    label="Archive"
                     @click="tryRemoveCompany(item.id, item.name)"
+                  />
+                  <q-btn
+                    v-if="item.archivedAt"
+                    size="sm"
+                    outline
+                    color="positive"
+                    label="Restore"
+                    @click="store.restore(item.id)"
                   />
                 </div>
               </q-card-section>
@@ -385,9 +427,10 @@ const fundingStageOptions = [
   'Unknown',
 ];
 const companyStatusOptions = ['Active', 'Acquired', 'IPO', 'Closed', 'Unknown'];
+const archiveViewOptions: Array<'Active' | 'Archived' | 'All'> = ['Active', 'Archived', 'All'];
 
 const positionCountByCompanyId = computed(() => {
-  return positionsStore.items.reduce<Record<number, number>>((acc, item) => {
+  return positionsStore.activeItems.reduce<Record<number, number>>((acc, item) => {
     if (item.companyId == null) {
       return acc;
     }
@@ -398,7 +441,7 @@ const positionCountByCompanyId = computed(() => {
 });
 
 const recruiterCountByCompanyId = computed(() => {
-  return recruitersStore.items.reduce<Record<number, number>>((acc, item) => {
+  return recruitersStore.activeItems.reduce<Record<number, number>>((acc, item) => {
     if (item.companyId == null) {
       return acc;
     }
@@ -409,7 +452,7 @@ const recruiterCountByCompanyId = computed(() => {
 });
 
 const applicationCountByCompanyId = computed(() => {
-  return applicationsStore.items.reduce<Record<number, number>>((acc, item) => {
+  return applicationsStore.activeItems.reduce<Record<number, number>>((acc, item) => {
     if (item.companyId == null) {
       return acc;
     }
@@ -461,6 +504,101 @@ function formatImportantNames(item: (typeof store.items)[number]) {
     .join(' · ');
 }
 
+type RecruiterTieHistoryEntry = {
+  changedAt: string;
+  recruiterName: string;
+  reason: string;
+};
+
+function getRecentRecruiterTieHistory(companyId: number) {
+  const ties: RecruiterTieHistoryEntry[] = [];
+
+  recruitersStore.items.forEach((recruiter) => {
+    const history = Array.isArray(recruiter.linkHistory) ? recruiter.linkHistory : [];
+    history.forEach((entry) => {
+      if (entry.companyId !== companyId) {
+        return;
+      }
+
+      ties.push({
+        changedAt: entry.changedAt,
+        recruiterName: recruiter.fullName,
+        reason: entry.reason,
+      });
+    });
+  });
+
+  return ties.sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, 3);
+}
+
+type PositionTieHistoryEntry = {
+  changedAt: string;
+  positionTitle: string;
+  recruiterId: number | null;
+  reason: string;
+};
+
+function getRecentPositionTieHistory(companyId: number) {
+  const ties: PositionTieHistoryEntry[] = [];
+
+  positionsStore.items.forEach((position) => {
+    const history = Array.isArray(position.linkHistory) ? position.linkHistory : [];
+    history.forEach((entry) => {
+      if (entry.companyId !== companyId) {
+        return;
+      }
+
+      ties.push({
+        changedAt: entry.changedAt,
+        positionTitle: position.title,
+        recruiterId: entry.recruiterId,
+        reason: entry.reason,
+      });
+    });
+  });
+
+  return ties.sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, 3);
+}
+
+function formatRecruiterTieHistoryEntry(entry: RecruiterTieHistoryEntry) {
+  return `${entry.recruiterName} • ${formatLinkReason(entry.reason)} • ${formatHistoryDate(entry.changedAt)}`;
+}
+
+function formatPositionTieHistoryEntry(entry: PositionTieHistoryEntry) {
+  const recruiterName =
+    entry.recruiterId != null
+      ? (recruitersStore.items.find((item) => item.id === entry.recruiterId)?.fullName ??
+        `Recruiting firm #${entry.recruiterId}`)
+      : 'No recruiting firm';
+
+  return `${entry.positionTitle} • ${recruiterName} • ${formatLinkReason(entry.reason)} • ${formatHistoryDate(entry.changedAt)}`;
+}
+
+function formatLinkReason(reason: string) {
+  switch (reason) {
+    case 'initial':
+      return 'Created';
+    case 'company-reassigned':
+      return 'Company reassigned';
+    default:
+      return 'Link updated';
+  }
+}
+
+function formatHistoryDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unknown date';
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
 onMounted(async () => {
   store.init();
   positionsStore.init();
@@ -498,12 +636,12 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
   await applicationsStore.init();
 
   const linkedPositions = positionsStore.items.filter(
-    (item) => item.companyId === companyId,
+    (item) => !item.archivedAt && item.companyId === companyId,
   ).length;
   const linkedRecruiters = recruitersStore.items.filter(
-    (item) => item.companyId === companyId,
+    (item) => !item.archivedAt && item.companyId === companyId,
   ).length;
-  const linkedApplications = applicationsStore.items.filter(
+  const linkedApplications = applicationsStore.activeItems.filter(
     (item) => item.companyId === companyId,
   ).length;
   const linkedTotal = linkedPositions + linkedRecruiters + linkedApplications;
@@ -536,7 +674,7 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
     store.remove(companyId);
     $q.notify({
       type: 'positive',
-      message: `Company deleted and ${linkedTotal} linked record${linkedTotal === 1 ? '' : 's'} updated.`,
+      message: `Company archived and ${linkedTotal} linked record${linkedTotal === 1 ? '' : 's'} updated.`,
     });
     return;
   }
@@ -556,7 +694,7 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
   store.remove(companyId);
   $q.notify({
     type: 'positive',
-    message: `Company deleted and links reassigned to ${getCompanyName(targetCompanyId)}.`,
+    message: `Company archived and links reassigned to ${getCompanyName(targetCompanyId)}.`,
   });
 }
 
@@ -573,8 +711,8 @@ function askCompanyDeleteResolution(companyName: string, linkedSummary: string) 
         type: 'radio',
         model: 'reassign',
         items: [
-          { label: 'Reassign links, then delete company', value: 'reassign' },
-          { label: 'Clear company links, then delete company', value: 'clear' },
+          { label: 'Reassign links, then archive company', value: 'reassign' },
+          { label: 'Clear company links, then archive company', value: 'clear' },
         ],
       },
       ok: { label: 'Continue', color: 'primary' },
@@ -588,7 +726,7 @@ function askCompanyDeleteResolution(companyName: string, linkedSummary: string) 
 }
 
 function askCompanyReassignTarget(currentCompanyId: number) {
-  const candidates = store.items
+  const candidates = store.activeItems
     .filter((item) => item.id !== currentCompanyId)
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -612,7 +750,7 @@ function askCompanyReassignTarget(currentCompanyId: number) {
           value: String(item.id),
         })),
       },
-      ok: { label: 'Reassign and delete', color: 'primary' },
+      ok: { label: 'Reassign and archive', color: 'primary' },
       cancel: { label: 'Cancel', flat: true },
       persistent: true,
     })

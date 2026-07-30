@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
-import type { PositionRecord } from '@/types/networking';
+import type { PositionLinkHistoryEntry, PositionRecord } from '@/types/networking';
 
-type PositionDraft = Omit<PositionRecord, 'id' | 'createdAt' | 'updatedAt'>;
+type PositionDraft = Omit<PositionRecord, 'id' | 'createdAt' | 'updatedAt' | 'linkHistory'>;
 type LegacyPositionRecord = Partial<PositionRecord> & {
   location?: string;
 };
@@ -12,11 +12,64 @@ function isPositionRecord(value: unknown): value is PositionRecord {
   return value !== null && typeof value === 'object' && 'street' in value && 'city' in value;
 }
 
+function normalizeLinkHistory(
+  value: unknown,
+  fallbackCreatedAt: string,
+  companyId: number | null,
+  recruiterId: number | null,
+): PositionLinkHistoryEntry[] {
+  if (!Array.isArray(value)) {
+    return [
+      {
+        changedAt: fallbackCreatedAt,
+        companyId,
+        recruiterId,
+        reason: 'initial',
+      },
+    ];
+  }
+
+  const normalized = value
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const entry = item as Partial<PositionLinkHistoryEntry>;
+      return {
+        changedAt: typeof entry.changedAt === 'string' ? entry.changedAt : fallbackCreatedAt,
+        companyId: typeof entry.companyId === 'number' ? entry.companyId : null,
+        recruiterId: typeof entry.recruiterId === 'number' ? entry.recruiterId : null,
+        reason: typeof entry.reason === 'string' && entry.reason ? entry.reason : 'updated',
+      };
+    })
+    .filter((entry): entry is PositionLinkHistoryEntry => entry !== null);
+
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return [
+    {
+      changedAt: fallbackCreatedAt,
+      companyId,
+      recruiterId,
+      reason: 'initial',
+    },
+  ];
+}
+
 function normalizePositionRecord(item: LegacyPositionRecord): PositionRecord {
+  const createdAt = typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString();
+  const companyId = typeof item.companyId === 'number' ? item.companyId : null;
+  const recruiterId = typeof item.recruiterId === 'number' ? item.recruiterId : null;
+
   return {
     id: typeof item.id === 'number' ? item.id : 0,
     title: typeof item.title === 'string' ? item.title : '',
-    companyId: typeof item.companyId === 'number' ? item.companyId : null,
+    companyId,
+    recruiterId,
+    linkHistory: normalizeLinkHistory(item.linkHistory, createdAt, companyId, recruiterId),
     status:
       item.status === 'Interviewing' || item.status === 'On Hold' || item.status === 'Closed'
         ? item.status
@@ -28,7 +81,8 @@ function normalizePositionRecord(item: LegacyPositionRecord): PositionRecord {
     compensation: typeof item.compensation === 'string' ? item.compensation : '',
     link: typeof item.link === 'string' ? item.link : '',
     notes: typeof item.notes === 'string' ? item.notes : '',
-    createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+    archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : null,
+    createdAt,
     updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
   };
 }
@@ -37,6 +91,7 @@ function createDraft(): PositionDraft {
   return {
     title: '',
     companyId: null,
+    recruiterId: null,
     status: 'Open',
     workMode: 'On-site',
     compensation: '',
@@ -86,12 +141,27 @@ export const usePositionsStore = defineStore('positions', {
     editingId: null as number | null,
     searchQuery: '',
     filterStatus: 'All',
+    archiveView: 'Active',
   }),
 
   getters: {
+    activeItems: (state) => state.items.filter((item) => !item.archivedAt),
+
     filteredItems: (state) => {
       const query = state.searchQuery.trim().toLowerCase();
-      const sorted = [...state.items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const sorted = state.items
+        .filter((item) => {
+          if (state.archiveView === 'Active') {
+            return !item.archivedAt;
+          }
+
+          if (state.archiveView === 'Archived') {
+            return Boolean(item.archivedAt);
+          }
+
+          return true;
+        })
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
       return sorted.filter((position) => {
         const statusMatch =
@@ -133,6 +203,7 @@ export const usePositionsStore = defineStore('positions', {
       this.draft = {
         title: item.title,
         companyId: item.companyId,
+        recruiterId: item.recruiterId,
         status: item.status,
         workMode: item.workMode,
         compensation: item.compensation,
@@ -146,6 +217,7 @@ export const usePositionsStore = defineStore('positions', {
       const payload = {
         title: this.draft.title.trim(),
         companyId: this.draft.companyId,
+        recruiterId: this.draft.recruiterId,
         status: this.draft.status,
         workMode: this.draft.workMode,
         compensation: this.draft.compensation.trim(),
@@ -159,7 +231,25 @@ export const usePositionsStore = defineStore('positions', {
 
       if (this.editingId !== null) {
         this.items = this.items.map((item) =>
-          item.id === this.editingId ? { ...item, ...payload, updatedAt: now } : item,
+          item.id === this.editingId
+            ? {
+                ...item,
+                ...payload,
+                linkHistory:
+                  item.companyId !== payload.companyId || item.recruiterId !== payload.recruiterId
+                    ? [
+                        ...item.linkHistory,
+                        {
+                          changedAt: now,
+                          companyId: payload.companyId,
+                          recruiterId: payload.recruiterId,
+                          reason: 'updated',
+                        },
+                      ]
+                    : item.linkHistory,
+                updatedAt: now,
+              }
+            : item,
         );
         persistPositions(this.items);
         this.resetDraft();
@@ -170,6 +260,15 @@ export const usePositionsStore = defineStore('positions', {
       this.items.unshift({
         id: nextId,
         ...payload,
+        linkHistory: [
+          {
+            changedAt: now,
+            companyId: payload.companyId,
+            recruiterId: payload.recruiterId,
+            reason: 'initial',
+          },
+        ],
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       });
@@ -179,7 +278,10 @@ export const usePositionsStore = defineStore('positions', {
     },
 
     remove(id: number) {
-      this.items = this.items.filter((item) => item.id !== id);
+      const now = new Date().toISOString();
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: now, updatedAt: now } : item,
+      );
       persistPositions(this.items);
 
       if (this.editingId === id) {
@@ -187,12 +289,20 @@ export const usePositionsStore = defineStore('positions', {
       }
     },
 
+    restore(id: number) {
+      const now = new Date().toISOString();
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
+      );
+      persistPositions(this.items);
+    },
+
     reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
       const now = new Date().toISOString();
       let changed = false;
 
       this.items = this.items.map((item) => {
-        if (item.companyId !== fromCompanyId) {
+        if (item.archivedAt || item.companyId !== fromCompanyId) {
           return item;
         }
 
@@ -200,6 +310,15 @@ export const usePositionsStore = defineStore('positions', {
         return {
           ...item,
           companyId: toCompanyId,
+          linkHistory: [
+            ...item.linkHistory,
+            {
+              changedAt: now,
+              companyId: toCompanyId,
+              recruiterId: item.recruiterId,
+              reason: 'company-reassigned',
+            },
+          ],
           updatedAt: now,
         };
       });

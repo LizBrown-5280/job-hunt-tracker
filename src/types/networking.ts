@@ -36,6 +36,7 @@ export type CompanyRecord = {
   zip: string;
   phone: string;
   notes: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,15 +44,25 @@ export type CompanyRecord = {
 export type PositionStatus = 'Open' | 'Interviewing' | 'On Hold' | 'Closed';
 export type PositionWorkMode = 'Remote' | 'On-site' | 'Hybrid';
 
+export type PositionLinkHistoryEntry = {
+  changedAt: string;
+  companyId: number | null;
+  recruiterId: number | null;
+  reason: string;
+};
+
 export type PositionRecord = {
   id: number;
   title: string;
   companyId: number | null;
+  recruiterId: number | null;
+  linkHistory: PositionLinkHistoryEntry[];
   status: PositionStatus;
   workMode: PositionWorkMode;
   compensation: string;
   link: string;
   notes: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -64,6 +75,12 @@ export type RecruiterContact = {
   phone: string;
   email: string;
   linkedinUrl: string;
+};
+
+export type RecruiterLinkHistoryEntry = {
+  changedAt: string;
+  companyId: number | null;
+  reason: string;
 };
 
 export type RecruiterRecord = {
@@ -79,8 +96,10 @@ export type RecruiterRecord = {
   phone: string;
   companyLinkedinUrl: string;
   contacts: RecruiterContact[];
+  linkHistory: RecruiterLinkHistoryEntry[];
   relationship: RecruiterRelationship;
   notes: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };

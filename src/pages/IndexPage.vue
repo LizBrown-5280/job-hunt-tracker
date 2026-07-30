@@ -186,7 +186,7 @@ const store = useApplicationsStore();
 const companiesStore = useCompaniesStore();
 const positionsStore = usePositionsStore();
 const router = useRouter();
-const { items, profile } = storeToRefs(store);
+const { activeItems, profile } = storeToRefs(store);
 const draggedItem = ref<ApplicationRecord | null>(null);
 const activeDropStatus = ref<ApplicationStatus | null>(null);
 const hoveredCardId = ref<string | null>(null);
@@ -207,13 +207,13 @@ const columns = [
   { title: 'Offer / Closed', status: 'Offer' as const },
 ] satisfies ReadonlyArray<{ title: string; status: ApplicationStatus }>;
 const companyNameById = computed(() =>
-  companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+  companiesStore.activeItems.reduce<Record<number, string>>((acc, company) => {
     acc[company.id] = company.name;
     return acc;
   }, {}),
 );
 const positionTitleById = computed(() =>
-  positionsStore.items.reduce<Record<number, string>>((acc, position) => {
+  positionsStore.activeItems.reduce<Record<number, string>>((acc, position) => {
     acc[position.id] = position.title;
     return acc;
   }, {}),
@@ -228,7 +228,7 @@ const groupedItems = computed<Record<ApplicationStatus, ApplicationRecord[]>>(()
     Ghosted: [],
   };
 
-  items.value.forEach((item) => {
+  activeItems.value.forEach((item) => {
     if (item.status === 'Rejected') {
       return;
     }
@@ -241,12 +241,12 @@ const groupedItems = computed<Record<ApplicationStatus, ApplicationRecord[]>>(()
 });
 
 const activeApplicationsCount = computed(() => {
-  return items.value.filter((item) => item.status !== 'Rejected' && item.status !== 'Ghosted')
+  return activeItems.value.filter((item) => item.status !== 'Rejected' && item.status !== 'Ghosted')
     .length;
 });
 
 const followUpDueSoonCount = computed(() => {
-  return items.value.filter((item) => {
+  return activeItems.value.filter((item) => {
     if (!item.followUpDate || item.status === 'Rejected' || item.status === 'Ghosted') {
       return false;
     }
@@ -256,15 +256,15 @@ const followUpDueSoonCount = computed(() => {
 });
 
 const pendingOfferCount = computed(() => {
-  return items.value.filter((item) => item.status === 'Offer').length;
+  return activeItems.value.filter((item) => item.status === 'Offer').length;
 });
 
 const focusApplication = computed(() => {
-  const activeItems = items.value.filter(
+  const prioritizedItems = activeItems.value.filter(
     (item) => item.status !== 'Rejected' && item.status !== 'Ghosted',
   );
 
-  return activeItems.sort((a, b) => {
+  return prioritizedItems.sort((a, b) => {
     const left = a.updatedAt ?? a.createdAt ?? '';
     const right = b.updatedAt ?? b.createdAt ?? '';
     return right.localeCompare(left);

@@ -1,9 +1,16 @@
 import { defineStore } from 'pinia';
-import type { RecruiterContact, RecruiterRecord } from '@/types/networking';
+import type {
+  RecruiterContact,
+  RecruiterLinkHistoryEntry,
+  RecruiterRecord,
+} from '@/types/networking';
 import { useApplicationsStore } from '@/stores/applications';
 
 type RecruiterContactDraft = RecruiterContact & { rowId: number };
-type RecruiterDraft = Omit<RecruiterRecord, 'id' | 'createdAt' | 'updatedAt' | 'contacts'> & {
+type RecruiterDraft = Omit<
+  RecruiterRecord,
+  'id' | 'createdAt' | 'updatedAt' | 'contacts' | 'linkHistory'
+> & {
   contacts: RecruiterContactDraft[];
 };
 
@@ -94,6 +101,49 @@ function toContactDraftRows(items: RecruiterContact[]): RecruiterContactDraft[] 
   }));
 }
 
+function normalizeLinkHistory(
+  value: unknown,
+  fallbackCreatedAt: string,
+  companyId: number | null,
+): RecruiterLinkHistoryEntry[] {
+  if (!Array.isArray(value)) {
+    return [
+      {
+        changedAt: fallbackCreatedAt,
+        companyId,
+        reason: 'initial',
+      },
+    ];
+  }
+
+  const normalized = value
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const entry = item as Partial<RecruiterLinkHistoryEntry>;
+      return {
+        changedAt: typeof entry.changedAt === 'string' ? entry.changedAt : fallbackCreatedAt,
+        companyId: typeof entry.companyId === 'number' ? entry.companyId : null,
+        reason: typeof entry.reason === 'string' && entry.reason ? entry.reason : 'updated',
+      };
+    })
+    .filter((entry): entry is RecruiterLinkHistoryEntry => entry !== null);
+
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return [
+    {
+      changedAt: fallbackCreatedAt,
+      companyId,
+      reason: 'initial',
+    },
+  ];
+}
+
 function normalizeRecruiterRecord(item: LegacyRecruiterRecord, index: number): RecruiterRecord {
   const fallbackId = index + 1;
   const id = typeof item.id === 'number' && Number.isFinite(item.id) ? item.id : fallbackId;
@@ -122,12 +172,14 @@ function normalizeRecruiterRecord(item: LegacyRecruiterRecord, index: number): R
     linkedinUrl: legacyLinkedinUrl,
   });
   const normalizedContacts = contacts.length ? contacts : legacyContact ? [legacyContact] : [];
+  const companyId =
+    typeof item.companyId === 'number' && Number.isFinite(item.companyId) ? item.companyId : null;
+  const createdAt = typeof item.createdAt === 'string' && item.createdAt ? item.createdAt : now;
 
   return {
     id,
     fullName,
-    companyId:
-      typeof item.companyId === 'number' && Number.isFinite(item.companyId) ? item.companyId : null,
+    companyId,
     website,
     industryFocus,
     street,
@@ -137,10 +189,12 @@ function normalizeRecruiterRecord(item: LegacyRecruiterRecord, index: number): R
     phone,
     companyLinkedinUrl,
     contacts: normalizedContacts,
+    linkHistory: normalizeLinkHistory(item.linkHistory, createdAt, companyId),
     relationship:
       item.relationship === 'Active' || item.relationship === 'Dormant' ? item.relationship : 'New',
     notes: typeof item.notes === 'string' ? item.notes.trim() : '',
-    createdAt: typeof item.createdAt === 'string' && item.createdAt ? item.createdAt : now,
+    archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : null,
+    createdAt,
     updatedAt: typeof item.updatedAt === 'string' && item.updatedAt ? item.updatedAt : now,
   };
 }
@@ -182,12 +236,27 @@ export const useRecruitersStore = defineStore('recruiters', {
     editingId: null as number | null,
     searchQuery: '',
     filterRelationship: 'All',
+    archiveView: 'Active' as 'Active' | 'Archived' | 'All',
   }),
 
   getters: {
+    activeItems: (state) => state.items.filter((item) => !item.archivedAt),
+
     filteredItems: (state) => {
       const query = state.searchQuery.trim().toLowerCase();
-      const sorted = [...state.items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const sorted = state.items
+        .filter((item) => {
+          if (state.archiveView === 'Active') {
+            return !item.archivedAt;
+          }
+
+          if (state.archiveView === 'Archived') {
+            return Boolean(item.archivedAt);
+          }
+
+          return true;
+        })
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
       return sorted.filter((recruiter) => {
         const relationshipMatch =
@@ -297,7 +366,24 @@ export const useRecruitersStore = defineStore('recruiters', {
 
       if (this.editingId !== null) {
         this.items = this.items.map((item) =>
-          item.id === this.editingId ? { ...item, ...payload, updatedAt: now } : item,
+          item.id === this.editingId
+            ? {
+                ...item,
+                ...payload,
+                linkHistory:
+                  item.companyId !== payload.companyId
+                    ? [
+                        ...item.linkHistory,
+                        {
+                          changedAt: now,
+                          companyId: payload.companyId,
+                          reason: 'updated',
+                        },
+                      ]
+                    : item.linkHistory,
+                updatedAt: now,
+              }
+            : item,
         );
         persistRecruiters(this.items);
         this.resetDraft();
@@ -316,6 +402,14 @@ export const useRecruitersStore = defineStore('recruiters', {
       this.items.unshift({
         id: nextId,
         ...payload,
+        linkHistory: [
+          {
+            changedAt: now,
+            companyId: payload.companyId,
+            reason: 'initial',
+          },
+        ],
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       });
@@ -344,7 +438,10 @@ export const useRecruitersStore = defineStore('recruiters', {
     },
 
     remove(id: number) {
-      this.items = this.items.filter((item) => item.id !== id);
+      const now = new Date().toISOString();
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: now, updatedAt: now } : item,
+      );
       persistRecruiters(this.items);
 
       if (this.editingId === id) {
@@ -352,12 +449,20 @@ export const useRecruitersStore = defineStore('recruiters', {
       }
     },
 
+    restore(id: number) {
+      const now = new Date().toISOString();
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
+      );
+      persistRecruiters(this.items);
+    },
+
     reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
       const now = new Date().toISOString();
       let changed = false;
 
       this.items = this.items.map((item) => {
-        if (item.companyId !== fromCompanyId) {
+        if (item.archivedAt || item.companyId !== fromCompanyId) {
           return item;
         }
 
@@ -365,6 +470,14 @@ export const useRecruitersStore = defineStore('recruiters', {
         return {
           ...item,
           companyId: toCompanyId,
+          linkHistory: [
+            ...item.linkHistory,
+            {
+              changedAt: now,
+              companyId: toCompanyId,
+              reason: 'company-reassigned',
+            },
+          ],
           updatedAt: now,
         };
       });

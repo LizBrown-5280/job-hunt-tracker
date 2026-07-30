@@ -26,6 +26,7 @@ type ApplicationSearch = {
   query: string;
   filter: ApplicationFilter;
   favoritesOrder: 'desc' | 'asc';
+  archiveView: 'Active' | 'Archived' | 'All';
 };
 
 type UserProfile = {
@@ -172,6 +173,7 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
     notes: typeof input.notes === 'string' ? input.notes : '',
     followUpDate: typeof input.followUpDate === 'string' ? input.followUpDate : '',
     favoriteRating: typeof input.favoriteRating === 'number' ? input.favoriteRating : 0,
+    archivedAt: typeof input.archivedAt === 'string' ? input.archivedAt : null,
     createdAt,
     updatedAt: toDateString(input.updatedAt, createdAt),
   };
@@ -263,6 +265,19 @@ class ApplicationsDatabase extends Dexie {
               typeof record.recruiterName === 'string' ? record.recruiterName : '';
           });
       });
+    this.version(6)
+      .stores({
+        applications:
+          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, archivedAt, createdAt, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('applications')
+          .toCollection()
+          .modify((record: Partial<ApplicationRecord>) => {
+            record.archivedAt = typeof record.archivedAt === 'string' ? record.archivedAt : null;
+          });
+      });
   }
 }
 
@@ -292,8 +307,9 @@ function getStoredCompanyById(companyId: number | null) {
   }
 
   return (
-    loadStoredArray<CompanyRecord>(COMPANIES_STORAGE_KEY).find((item) => item.id === companyId) ??
-    null
+    loadStoredArray<CompanyRecord>(COMPANIES_STORAGE_KEY).find(
+      (item) => item.id === companyId && !item.archivedAt,
+    ) ?? null
   );
 }
 
@@ -303,8 +319,9 @@ function getStoredPositionById(positionId: number | null) {
   }
 
   return (
-    loadStoredArray<PositionRecord>(POSITIONS_STORAGE_KEY).find((item) => item.id === positionId) ??
-    null
+    loadStoredArray<PositionRecord>(POSITIONS_STORAGE_KEY).find(
+      (item) => item.id === positionId && !item.archivedAt,
+    ) ?? null
   );
 }
 
@@ -315,7 +332,7 @@ function getStoredRecruiterById(recruiterId: number | null) {
 
   return (
     loadStoredArray<RecruiterRecord>(RECRUITERS_STORAGE_KEY).find(
-      (item) => item.id === recruiterId,
+      (item) => item.id === recruiterId && !item.archivedAt,
     ) ?? null
   );
 }
@@ -352,18 +369,33 @@ export const useApplicationsStore = defineStore('applications', {
       query: '',
       filter: 'All',
       favoritesOrder: 'desc',
+      archiveView: 'Active',
     },
     profile: loadStoredProfile(),
     backupMeta: loadStoredBackupMeta(),
   }),
 
   getters: {
+    activeItems: (state) => state.items.filter((item) => !item.archivedAt),
+
     filteredItems: (state) => {
-      const items = [...state.items].sort((a, b) => {
-        const left = a.updatedAt ?? a.createdAt ?? '';
-        const right = b.updatedAt ?? b.createdAt ?? '';
-        return right.localeCompare(left);
-      });
+      const items = state.items
+        .filter((item) => {
+          if (state.search.archiveView === 'Active') {
+            return !item.archivedAt;
+          }
+
+          if (state.search.archiveView === 'Archived') {
+            return Boolean(item.archivedAt);
+          }
+
+          return true;
+        })
+        .sort((a, b) => {
+          const left = a.updatedAt ?? a.createdAt ?? '';
+          const right = b.updatedAt ?? b.createdAt ?? '';
+          return right.localeCompare(left);
+        });
 
       const normalizedQuery = state.search.query.trim().toLowerCase();
 
@@ -424,6 +456,7 @@ export const useApplicationsStore = defineStore('applications', {
       this.search.query = '';
       this.search.filter = 'All';
       this.search.favoritesOrder = 'desc';
+      this.search.archiveView = 'Active';
     },
 
     setFilter(filter: ApplicationFilter) {
@@ -514,17 +547,28 @@ export const useApplicationsStore = defineStore('applications', {
       }
 
       const id = await db.applications.add({ ...payload, createdAt: now });
-      this.items.unshift({ ...payload, createdAt: now, id });
+      this.items.unshift({ ...payload, archivedAt: null, createdAt: now, id });
       this.resetDraft();
     },
 
     async remove(id: number) {
-      await db.applications.delete(id);
-      this.items = this.items.filter((item) => item.id !== id);
+      const now = new Date().toISOString();
+      await db.applications.update(id, { archivedAt: now, updatedAt: now });
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: now, updatedAt: now } : item,
+      );
 
       if (this.editingId === id) {
         this.resetDraft();
       }
+    },
+
+    async restore(id: number) {
+      const now = new Date().toISOString();
+      await db.applications.update(id, { archivedAt: null, updatedAt: now });
+      this.items = this.items.map((item) =>
+        item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
+      );
     },
 
     async updateStatus(id: number, status: ApplicationStatus) {
@@ -564,6 +608,10 @@ export const useApplicationsStore = defineStore('applications', {
       let hasChanges = false;
 
       this.items = this.items.map((item) => {
+        if (item.archivedAt) {
+          return item;
+        }
+
         const currentCompanyId = item.companyId ?? null;
         const currentPositionId = item.positionId ?? null;
         const currentRecruiterId = item.recruiterId ?? null;
@@ -630,6 +678,10 @@ export const useApplicationsStore = defineStore('applications', {
       let changed = false;
 
       this.items = this.items.map((item) => {
+        if (item.archivedAt) {
+          return item;
+        }
+
         const currentCompanyId = item.companyId ?? null;
         if (currentCompanyId !== fromCompanyId) {
           return item;
@@ -676,7 +728,7 @@ export const useApplicationsStore = defineStore('applications', {
       let changed = false;
 
       this.items = this.items.map((item) => {
-        if (item.companyId !== companyId || item.company === normalizedName) {
+        if (item.archivedAt || item.companyId !== companyId || item.company === normalizedName) {
           return item;
         }
 
@@ -715,6 +767,10 @@ export const useApplicationsStore = defineStore('applications', {
       let changed = false;
 
       this.items = this.items.map((item) => {
+        if (item.archivedAt) {
+          return item;
+        }
+
         const currentPositionId = item.positionId ?? null;
         if (currentPositionId !== fromPositionId) {
           return item;
@@ -761,7 +817,7 @@ export const useApplicationsStore = defineStore('applications', {
       let changed = false;
 
       this.items = this.items.map((item) => {
-        if (item.positionId !== positionId || item.role === normalizedTitle) {
+        if (item.archivedAt || item.positionId !== positionId || item.role === normalizedTitle) {
           return item;
         }
 
@@ -801,7 +857,11 @@ export const useApplicationsStore = defineStore('applications', {
       let changed = false;
 
       this.items = this.items.map((item) => {
-        if (item.recruiterId !== recruiterId || item.recruiterName === normalizedName) {
+        if (
+          item.archivedAt ||
+          item.recruiterId !== recruiterId ||
+          item.recruiterName === normalizedName
+        ) {
           return item;
         }
 
@@ -944,10 +1004,11 @@ export const useApplicationsStore = defineStore('applications', {
         }
 
         await this.remove(created.id);
-        steps.push('delete-flow');
+        steps.push('archive-flow');
 
-        if (this.items.some((item) => item.id === created.id)) {
-          throw new Error('Delete flow failed.');
+        const archivedRecord = this.items.find((item) => item.id === created.id);
+        if (!archivedRecord?.archivedAt) {
+          throw new Error('Archive flow failed.');
         }
 
         await this.importBackup(snapshot);
