@@ -54,7 +54,7 @@ This repository is configured to deploy to Firebase Hosting for:
 2. In Firebase Hosting, ensure site `job-hunt-tracker` exists.
 3. Create a GitHub Actions service account secret named `FIREBASE_SERVICE_ACCOUNT_JOB_HUNT_TRACKER`.
 4. Add that secret in GitHub repository settings:
-	`Settings > Secrets and variables > Actions > New repository secret`.
+   `Settings > Secrets and variables > Actions > New repository secret`.
 
 ### Custom Domain (`tracker.lizbrown5280.com`)
 
