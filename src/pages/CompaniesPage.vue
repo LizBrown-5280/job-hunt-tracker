@@ -5,19 +5,174 @@
         <q-card class="q-pa-md">
           <div class="text-h6 q-mb-md">{{ editingId ? 'Edit company' : 'Add company' }}</div>
           <q-form @submit.prevent="submitCompany">
-            <q-input v-model="store.draft.name" label="Company name" filled dense class="q-mb-sm" />
-            <q-input v-model="store.draft.website" label="Website" filled dense class="q-mb-sm" />
-            <q-input v-model="store.draft.industry" label="Industry" filled dense class="q-mb-sm" />
-            <q-input v-model="store.draft.location" label="Location" filled dense class="q-mb-sm" />
-            <q-input
-              v-model="store.draft.notes"
-              type="textarea"
-              autogrow
-              filled
-              label="Notes"
-              class="q-mb-sm"
-            />
-            <div class="row q-gutter-sm">
+            <section>
+              <q-input
+                v-model="store.draft.name"
+                label="Company name"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <q-input v-model="store.draft.website" label="Website" filled dense class="q-mb-sm" />
+              <q-select
+                v-model="store.draft.industry"
+                :options="filteredIndustryOptions"
+                label="Industry"
+                filled
+                dense
+                clearable
+                use-input
+                input-debounce="0"
+                @filter="filterIndustryOptions"
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Company Headquarter Address and Phone</div>
+              <q-input
+                v-model="store.draft.street"
+                label="Street address"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <div class="row q-col-gutter-sm">
+                <div class="col-12 col-md-6">
+                  <q-input v-model="store.draft.city" label="City" filled dense class="q-mb-sm" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <q-input v-model="store.draft.state" label="State" filled dense class="q-mb-sm" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <q-input v-model="store.draft.zip" label="ZIP" filled dense class="q-mb-sm" />
+                </div>
+              </div>
+              <q-input
+                v-model="store.draft.phone"
+                label="Phone number"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Notes</div>
+              <q-input
+                v-model="store.draft.notes"
+                type="textarea"
+                autogrow
+                filled
+                placeholder="Add notes about the company"
+                maxlength="500"
+                counter
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="row items-center q-mb-xs">
+                <div class="text-subtitle2">Important Leadership Names</div>
+                <q-space />
+                <q-btn
+                  color="primary"
+                  outline
+                  denses
+                  icon="add"
+                  label="Add Name"
+                  @click="store.addImportantNameRow()"
+                />
+              </div>
+              <div class="column q-gutter-sm q-mb-sm">
+                <q-card v-for="nameRow in store.draft.importantNames" :key="nameRow.rowId" bordered>
+                  <q-card-section class="q-pa-sm">
+                    <div class="row q-col-gutter-sm">
+                      <div class="col-12 col-md-4">
+                        <q-input v-model="nameRow.name" label="Name" filled dense class="q-mb-sm" />
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <q-input
+                          v-model="nameRow.title"
+                          label="Title"
+                          placeholder="e.g. VP of Engineering"
+                          filled
+                          dense
+                          class="q-mb-sm"
+                        />
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <q-select
+                          v-model="nameRow.category"
+                          :options="importantNameCategoryOptions"
+                          label="Category"
+                          placeholder="Select a category"
+                          filled
+                          dense
+                          clearable
+                          class="q-mb-sm"
+                        />
+                      </div>
+                    </div>
+                    <q-input
+                      v-model="nameRow.notesConfidence"
+                      type="textarea"
+                      autogrow
+                      filled
+                      label="Notes / Confidence"
+                      placeholder="Add notes or confidence"
+                      maxlength="100"
+                      counter
+                      class="q-mb-sm"
+                    />
+                    <div class="row justify-end">
+                      <q-btn
+                        flat
+                        dense
+                        color="negative"
+                        label="Delete row"
+                        @click="store.removeImportantNameRow(nameRow.rowId)"
+                      />
+                    </div>
+                  </q-card-section>
+                </q-card>
+              </div>
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Additional Information</div>
+              <q-select
+                v-model="store.draft.size"
+                :options="companySizeOptions"
+                label="Company size"
+                placeholder="Select a size"
+                filled
+                dense
+                clearable
+                class="q-mb-sm"
+              />
+              <q-select
+                v-model="store.draft.fundingStage"
+                :options="fundingStageOptions"
+                label="Funding stage"
+                placeholder="Select one"
+                filled
+                dense
+                clearable
+                class="q-mb-sm"
+              />
+              <q-select
+                v-model="store.draft.status"
+                :options="companyStatusOptions"
+                label="Status"
+                placeholder="Select one"
+                filled
+                dense
+                clearable
+                class="q-mb-sm"
+              />
+            </section>
+            <div class="row justify-end q-gutter-sm" style="margin-top: 20px">
               <q-btn
                 color="primary"
                 type="submit"
@@ -25,6 +180,7 @@
               />
               <q-btn
                 v-if="editingId"
+                clearable
                 flat
                 color="grey-7"
                 label="Cancel"
@@ -72,7 +228,16 @@
                       {{ item.industry || 'No industry set' }}
                     </div>
                     <div class="text-caption text-grey-7">
-                      {{ item.location || 'No location set' }}
+                      {{ formatAdditionalInformation(item) }}
+                    </div>
+                    <div class="text-caption text-grey-7">
+                      {{ formatCompanyAddress(item) }}
+                    </div>
+                    <div v-if="item.phone" class="text-caption text-grey-7">
+                      {{ item.phone }}
+                    </div>
+                    <div v-if="item.importantNames.length" class="text-caption text-grey-7 q-mt-xs">
+                      {{ formatImportantNames(item) }}
                     </div>
                     <div v-if="item.website" class="text-caption q-mt-xs">
                       {{ item.website }}
@@ -149,7 +314,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
@@ -165,6 +330,49 @@ const applicationsStore = useApplicationsStore();
 const $q = useQuasar();
 const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
+
+const industryOptions = [
+  'Agriculture & Natural Resources',
+  'Construction',
+  'Manufacturing',
+  'Transportation & Logistics',
+  'Wholesale & Retail Trade',
+  'Hospitality & Food Services',
+  'Healthcare',
+  'Technology (IT / Software / Telecom)',
+  'Finance & Insurance',
+  'Real Estate',
+  'Professional Services (Legal, Consulting, Accounting)',
+  'Government & Public Sector',
+  'Education & Training',
+  'Nonprofit & Social Services',
+  'Energy & Utilities (Power/Water)',
+  'Engineering, Architecture & Design',
+  'Arts, Media & Entertainment',
+  'Other',
+];
+
+const filteredIndustryOptions = ref([...industryOptions]);
+const importantNameCategoryOptions = [
+  'Founder',
+  'CEO',
+  'C-level',
+  'People/HR',
+  'Hiring/Dept lead',
+  'Other',
+];
+const companySizeOptions = ['1–50', '51–200', '201–1000', '1000+'];
+const fundingStageOptions = [
+  'Bootstrapped',
+  'Pre-seed',
+  'Seed',
+  'Series A',
+  'Series B',
+  'Series C+',
+  'Public',
+  'Unknown',
+];
+const companyStatusOptions = ['Active', 'Acquired', 'IPO', 'Closed', 'Unknown'];
 
 const positionCountByCompanyId = computed(() => {
   return positionsStore.items.reduce<Record<number, number>>((acc, item) => {
@@ -198,6 +406,48 @@ const applicationCountByCompanyId = computed(() => {
     return acc;
   }, {});
 });
+
+function filterIndustryOptions(val: string, update: (fn: () => void) => void, abort: () => void) {
+  if (!val) {
+    update(() => {
+      filteredIndustryOptions.value = [...industryOptions];
+    });
+    return;
+  }
+
+  const needle = val.trim().toLowerCase();
+  if (!needle) {
+    abort();
+    return;
+  }
+
+  update(() => {
+    filteredIndustryOptions.value = industryOptions.filter((option) =>
+      option.toLowerCase().includes(needle),
+    );
+  });
+}
+
+function formatCompanyAddress(item: (typeof store.items)[number]) {
+  const parts = [item.street, item.city, item.state, item.zip].filter((value) => value.trim());
+
+  return parts.length ? parts.join(', ') : 'No company address set';
+}
+
+function formatAdditionalInformation(item: (typeof store.items)[number]) {
+  const size = item.size || 'Not set';
+  const fundingStage = item.fundingStage || 'Not set';
+  const status = item.status || 'Not set';
+
+  return [`Size: ${size}`, `Funding: ${fundingStage}`, `Status: ${status}`].join(' · ');
+}
+
+function formatImportantNames(item: (typeof store.items)[number]) {
+  return item.importantNames
+    .slice(0, 3)
+    .map((person) => `${person.name}${person.category ? ` (${person.category})` : ''}`)
+    .join(' · ');
+}
 
 onMounted(async () => {
   store.init();
