@@ -59,20 +59,20 @@ const RECRUITERS_STORAGE_KEY = 'job-hunt-tracker-recruiters-v1';
 
 function loadStoredProfile(): UserProfile {
   if (typeof window === 'undefined') {
-    return { name: 'Alex' };
+    return { name: '' };
   }
 
   const stored = window.localStorage.getItem(PROFILE_STORAGE_KEY);
   if (!stored) {
-    return { name: 'Alex' };
+    return { name: '' };
   }
 
   try {
     const parsed = JSON.parse(stored) as Partial<UserProfile>;
     const name = parsed.name?.trim();
-    return name ? { name } : { name: 'Alex' };
+    return name ? { name } : { name: '' };
   } catch {
-    return { name: 'Alex' };
+    return { name: '' };
   }
 }
 
@@ -699,7 +699,7 @@ export const useApplicationsStore = defineStore('applications', {
     },
 
     updateProfile(name: string) {
-      const trimmedName = name.trim() || 'Alex';
+      const trimmedName = name.trim();
       this.profile = { name: trimmedName };
       persistProfile(this.profile);
     },
@@ -1180,7 +1180,7 @@ export const useApplicationsStore = defineStore('applications', {
       });
 
       if (record.profile && typeof record.profile.name === 'string') {
-        this.profile = { name: record.profile.name.trim() || 'Alex' };
+        this.profile = { name: record.profile.name.trim() };
         persistProfile(this.profile);
       }
 

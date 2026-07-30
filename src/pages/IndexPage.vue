@@ -4,7 +4,7 @@
       <div class="col-12 col-md-7">
         <q-card class="q-pa-md">
           <div class="row items-center justify-between q-mb-sm">
-            <div class="text-h5">Welcome back, {{ profile.name }}</div>
+            <div class="text-h5">{{ welcomeHeading }}</div>
             <div class="text-subtitle2 text-grey-7">{{ todayLabel }}</div>
           </div>
           <div class="text-subtitle2 text-grey-7">
@@ -195,6 +195,10 @@ const todayLabel = new Intl.DateTimeFormat('en', {
   month: 'short',
   day: 'numeric',
 }).format(new Date());
+const welcomeHeading = computed(() => {
+  const name = profile.value.name.trim();
+  return name ? `Welcome back, ${name}` : 'Welcome back';
+});
 
 const columns = [
   { title: 'Wishlist', status: 'Wishlist' as const },
