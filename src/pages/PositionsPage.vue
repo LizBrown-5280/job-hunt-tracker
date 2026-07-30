@@ -223,8 +223,19 @@ onMounted(async () => {
   }
 });
 
-function submitPosition() {
+async function submitPosition() {
+  const currentEditingId = editingId.value;
+  const nextTitle = store.draft.title.trim();
+  const previousTitle =
+    currentEditingId != null
+      ? (store.items.find((item) => item.id === currentEditingId)?.title.trim() ?? '')
+      : '';
+
   store.save();
+
+  if (currentEditingId != null && nextTitle && nextTitle !== previousTitle) {
+    await applicationsStore.syncPositionTitleReferences(currentEditingId, nextTitle);
+  }
 }
 
 async function tryRemovePosition(positionId: number, positionTitle: string) {
@@ -259,7 +270,11 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
     return;
   }
 
-  await applicationsStore.reassignPositionReferences(positionId, targetPositionId);
+  await applicationsStore.reassignPositionReferences(
+    positionId,
+    targetPositionId,
+    getPositionTitle(targetPositionId),
+  );
   store.remove(positionId);
   $q.notify({
     type: 'positive',

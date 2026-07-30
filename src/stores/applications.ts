@@ -882,7 +882,11 @@ export const useApplicationsStore = defineStore('applications', {
       });
     },
 
-    async reassignPositionReferences(fromPositionId: number, toPositionId: number | null) {
+    async reassignPositionReferences(
+      fromPositionId: number,
+      toPositionId: number | null,
+      toPositionTitle?: string,
+    ) {
       const now = new Date().toISOString();
       let changed = false;
 
@@ -896,6 +900,10 @@ export const useApplicationsStore = defineStore('applications', {
         return {
           ...item,
           positionId: toPositionId,
+          role:
+            toPositionId != null && typeof toPositionTitle === 'string' && toPositionTitle.trim()
+              ? toPositionTitle.trim()
+              : item.role,
           updatedAt: now,
         };
       });
@@ -912,6 +920,47 @@ export const useApplicationsStore = defineStore('applications', {
 
           await db.applications.update(item.id, {
             positionId: item.positionId ?? null,
+            role: item.role,
+            updatedAt: item.updatedAt,
+          });
+        }
+      });
+    },
+
+    async syncPositionTitleReferences(positionId: number, positionTitle: string) {
+      const normalizedTitle = positionTitle.trim();
+      if (!normalizedTitle) {
+        return;
+      }
+
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        if (item.positionId !== positionId || item.role === normalizedTitle) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          role: normalizedTitle,
+          updatedAt: now,
+        };
+      });
+
+      if (!changed) {
+        return;
+      }
+
+      await db.transaction('rw', db.applications, async () => {
+        for (const item of this.items) {
+          if (item.id == null || item.positionId !== positionId) {
+            continue;
+          }
+
+          await db.applications.update(item.id, {
+            role: item.role,
             updatedAt: item.updatedAt,
           });
         }
