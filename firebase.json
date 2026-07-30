@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "job-hunt-tracker",
+    "site": "job-hunt-tracker-d9d65",
     "public": "dist/spa",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [

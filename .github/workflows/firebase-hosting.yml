@@ -38,7 +38,7 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JOB_HUNT_TRACKER }}
-          projectId: job-hunt-tracker
+          projectId: job-hunt-tracker-d9d65
           channelId: pr-${{ github.event.pull_request.number }}
 
   deploy_live:
@@ -67,5 +67,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JOB_HUNT_TRACKER }}
-          projectId: job-hunt-tracker
+          projectId: job-hunt-tracker-d9d65
           channelId: live

@@ -43,15 +43,15 @@ This repository is configured to deploy to Firebase Hosting for:
 
 ### Project Defaults
 
-1. Firebase project ID: `job-hunt-tracker`
-2. Hosting site ID: `job-hunt-tracker`
+1. Firebase project ID: `job-hunt-tracker-d9d65`
+2. Hosting site ID: `job-hunt-tracker-d9d65`
 3. Hosting public directory: `dist/spa`
 4. SPA rewrite: all routes to `/index.html`
 
 ### One-Time Setup
 
-1. Create (or confirm) the Firebase project `job-hunt-tracker`.
-2. In Firebase Hosting, ensure site `job-hunt-tracker` exists.
+1. Create (or confirm) the Firebase project `job-hunt-tracker-d9d65`.
+2. In Firebase Hosting, ensure site `job-hunt-tracker-d9d65` exists.
 3. Create a GitHub Actions service account secret named `FIREBASE_SERVICE_ACCOUNT_JOB_HUNT_TRACKER`.
 4. Add that secret in GitHub repository settings:
    `Settings > Secrets and variables > Actions > New repository secret`.
@@ -73,7 +73,7 @@ This repository is configured to deploy to Firebase Hosting for:
 
 ```bash
 npm run build
-npx firebase-tools deploy --only hosting --project job-hunt-tracker
+npx firebase-tools deploy --only hosting --project job-hunt-tracker-d9d65
 ```
 
 ### Customize the configuration
