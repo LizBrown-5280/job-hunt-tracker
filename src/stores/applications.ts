@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia';
 import Dexie from 'dexie';
-import type { ApplicationRecord, ApplicationStatus } from '@/types/applications';
+import type {
+  ApplicationJourneyEvent,
+  ApplicationRecord,
+  ApplicationStatus,
+} from '@/types/applications';
 import type { CompanyRecord, PositionRecord, RecruiterRecord } from '@/types/networking';
 
 type DraftApplication = Pick<
@@ -18,6 +22,7 @@ type DraftApplication = Pick<
   | 'priority'
   | 'followUpDate'
   | 'favoriteRating'
+  | 'journeyEvents'
 >;
 
 type ApplicationFilter = ApplicationStatus | 'All' | 'Favorites';
@@ -138,7 +143,7 @@ function toDateString(value: unknown, fallback: string) {
 
 function toStatus(value: unknown): ApplicationStatus {
   const allowed: ApplicationStatus[] = [
-    'Wishlist',
+    'Not Started',
     'Applied',
     'Interview',
     'Offer',
@@ -150,12 +155,127 @@ function toStatus(value: unknown): ApplicationStatus {
     return value as ApplicationStatus;
   }
 
-  return 'Applied';
+  return 'Not Started';
+}
+
+function toIsoDate(value: unknown, fallback = '') {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return trimmed.slice(0, 10);
+}
+
+function createJourneyEventId() {
+  return `journey-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeJourneyEvents(
+  input: unknown,
+  fallbackStatus: ApplicationStatus,
+  fallbackDate: string,
+  fallbackCreatedAt: string,
+): ApplicationJourneyEvent[] {
+  if (Array.isArray(input)) {
+    const normalized = input
+      .map((raw) => {
+        if (!raw || typeof raw !== 'object') {
+          return null;
+        }
+
+        const event = raw as Partial<ApplicationJourneyEvent>;
+        const createdAt = toDateString(event.createdAt, fallbackCreatedAt);
+        const updatedAt = toDateString(event.updatedAt, createdAt);
+        const eventDate = toIsoDate(event.eventDate, '');
+        if (!eventDate) {
+          return null;
+        }
+
+        return {
+          id: typeof event.id === 'string' && event.id ? event.id : createJourneyEventId(),
+          status: toStatus(event.status),
+          eventDate,
+          note: typeof event.note === 'string' ? event.note : '',
+          archivedAt: typeof event.archivedAt === 'string' ? event.archivedAt : null,
+          createdAt,
+          updatedAt,
+        } satisfies ApplicationJourneyEvent;
+      })
+      .filter((event): event is ApplicationJourneyEvent => event !== null)
+      .sort((a, b) => {
+        const dateCmp = a.eventDate.localeCompare(b.eventDate);
+        if (dateCmp !== 0) {
+          return dateCmp;
+        }
+
+        return a.createdAt.localeCompare(b.createdAt);
+      });
+
+    if (normalized.length) {
+      return normalized;
+    }
+  }
+
+  const normalizedFallbackDate = toIsoDate(fallbackDate, '');
+  if (!normalizedFallbackDate) {
+    return [];
+  }
+
+  return [
+    {
+      id: createJourneyEventId(),
+      status: fallbackStatus,
+      eventDate: normalizedFallbackDate,
+      note: '',
+      archivedAt: null,
+      createdAt: fallbackCreatedAt,
+      updatedAt: fallbackCreatedAt,
+    },
+  ];
+}
+
+function getActiveJourneyEvents(events: ApplicationJourneyEvent[]) {
+  return events
+    .filter((event) => !event.archivedAt)
+    .sort((a, b) => {
+      const dateCmp = a.eventDate.localeCompare(b.eventDate);
+      if (dateCmp !== 0) {
+        return dateCmp;
+      }
+
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+}
+
+function getLatestActiveJourneyEvent(events: ApplicationJourneyEvent[]) {
+  const active = getActiveJourneyEvents(events);
+  return active.length ? active[active.length - 1] : null;
 }
 
 function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRecord {
   const now = new Date().toISOString();
   const createdAt = toDateString(input.createdAt, now);
+  const fallbackStatus = toStatus(input.status);
+  const fallbackAppliedDate = toIsoDate(input.appliedDate, '');
+  const journeyEvents = normalizeJourneyEvents(
+    input.journeyEvents,
+    fallbackStatus,
+    fallbackAppliedDate,
+    createdAt,
+  );
+  const latestJourneyEvent = getLatestActiveJourneyEvent(journeyEvents);
+  const normalizedStatus = latestJourneyEvent?.status ?? fallbackStatus;
+  const normalizedAppliedDate = latestJourneyEvent?.eventDate ?? fallbackAppliedDate;
 
   const normalized: ApplicationRecord = {
     company: typeof input.company === 'string' ? input.company : '',
@@ -164,14 +284,12 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
     positionId: typeof input.positionId === 'number' ? input.positionId : null,
     recruiterId: typeof input.recruiterId === 'number' ? input.recruiterId : null,
     recruiterName: typeof input.recruiterName === 'string' ? input.recruiterName : '',
-    status: toStatus(input.status),
-    appliedDate:
-      typeof input.appliedDate === 'string' && input.appliedDate
-        ? input.appliedDate
-        : now.slice(0, 10),
+    status: normalizedStatus,
+    appliedDate: normalizedAppliedDate,
     nextAction: typeof input.nextAction === 'string' ? input.nextAction : '',
     notes: typeof input.notes === 'string' ? input.notes : '',
     followUpDate: typeof input.followUpDate === 'string' ? input.followUpDate : '',
+    journeyEvents,
     favoriteRating: typeof input.favoriteRating === 'number' ? input.favoriteRating : 0,
     archivedAt: typeof input.archivedAt === 'string' ? input.archivedAt : null,
     createdAt,
@@ -278,6 +396,27 @@ class ApplicationsDatabase extends Dexie {
             record.archivedAt = typeof record.archivedAt === 'string' ? record.archivedAt : null;
           });
       });
+    this.version(7)
+      .stores({
+        applications:
+          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, archivedAt, createdAt, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('applications')
+          .toCollection()
+          .modify((record: Partial<ApplicationRecord>) => {
+            const createdAt = toDateString(record.createdAt, new Date().toISOString());
+            const fallbackStatus = toStatus(record.status);
+            const fallbackAppliedDate = toIsoDate(record.appliedDate, '');
+            record.journeyEvents = normalizeJourneyEvents(
+              record.journeyEvents,
+              fallbackStatus,
+              fallbackAppliedDate,
+              createdAt,
+            );
+          });
+      });
   }
 }
 
@@ -344,12 +483,13 @@ const createDraft = (): DraftApplication => ({
   positionId: null,
   recruiterId: null,
   recruiterName: '',
-  status: 'Applied',
-  appliedDate: new Date().toISOString().slice(0, 10),
+  status: 'Not Started',
+  appliedDate: '',
   nextAction: '',
   notes: '',
-  priority: 'Medium',
+  priority: 'None',
   followUpDate: '',
+  journeyEvents: [],
   favoriteRating: 0,
 });
 
@@ -438,7 +578,47 @@ export const useApplicationsStore = defineStore('applications', {
       this.profile = loadStoredProfile();
 
       const freshItems = await db.applications.orderBy('createdAt').reverse().toArray();
-      this.items = freshItems;
+      const now = new Date().toISOString();
+      const changedRecords: Array<{
+        id: number;
+        status: ApplicationStatus;
+        appliedDate: string;
+        journeyEvents: ApplicationJourneyEvent[];
+      }> = [];
+      const normalizedItems: ApplicationRecord[] = freshItems.map((item) => {
+        const legacyStatus = item.status as string;
+        const normalized = normalizeApplication(item);
+
+        if (legacyStatus === 'Wishlist' || !Array.isArray(item.journeyEvents)) {
+          if (item.id != null) {
+            changedRecords.push({
+              id: item.id,
+              status: normalized.status,
+              appliedDate: normalized.appliedDate,
+              journeyEvents: normalized.journeyEvents,
+            });
+          }
+
+          return { ...normalized, updatedAt: now };
+        }
+
+        return normalized;
+      });
+
+      if (changedRecords.length > 0) {
+        await Promise.all(
+          changedRecords.map((record) =>
+            db.applications.update(record.id, {
+              status: record.status,
+              appliedDate: record.appliedDate,
+              journeyEvents: record.journeyEvents,
+              updatedAt: now,
+            }),
+          ),
+        );
+      }
+
+      this.items = normalizedItems;
     },
 
     resetDraft() {
@@ -485,9 +665,20 @@ export const useApplicationsStore = defineStore('applications', {
         appliedDate: item.appliedDate,
         nextAction: item.nextAction,
         notes: item.notes,
-        priority: item.priority ?? 'Medium',
+        priority: item.priority ?? 'None',
         followUpDate: item.followUpDate ?? '',
+        journeyEvents: Array.isArray(item.journeyEvents) ? [...item.journeyEvents] : [],
         favoriteRating: item.favoriteRating ?? 0,
+      };
+    },
+
+    syncCurrentStatusFromJourney(
+      target: Pick<ApplicationRecord, 'status' | 'appliedDate' | 'journeyEvents'>,
+    ) {
+      const latestJourneyEvent = getLatestActiveJourneyEvent(target.journeyEvents ?? []);
+      return {
+        status: latestJourneyEvent?.status ?? target.status,
+        appliedDate: latestJourneyEvent?.eventDate ?? target.appliedDate,
       };
     },
 
@@ -521,6 +712,17 @@ export const useApplicationsStore = defineStore('applications', {
         linkedCompanyFromRecruiter?.name.trim() ||
         linkedCompany?.name.trim() ||
         this.draft.company.trim();
+      const normalizedJourneyEvents = normalizeJourneyEvents(
+        this.draft.journeyEvents,
+        this.draft.status,
+        this.draft.appliedDate,
+        now,
+      );
+      const derived = this.syncCurrentStatusFromJourney({
+        status: this.draft.status,
+        appliedDate: this.draft.appliedDate,
+        journeyEvents: normalizedJourneyEvents,
+      });
 
       const payload = {
         ...this.draft,
@@ -530,8 +732,10 @@ export const useApplicationsStore = defineStore('applications', {
         positionId: nextPositionId,
         recruiterId: nextRecruiterId,
         recruiterName: nextRecruiterName,
-        status: this.draft.status,
-        priority: this.draft.priority ?? 'Medium',
+        status: derived.status,
+        appliedDate: derived.appliedDate,
+        journeyEvents: normalizedJourneyEvents,
+        priority: this.draft.priority ?? 'None',
         followUpDate: this.draft.followUpDate ?? '',
         favoriteRating: this.draft.favoriteRating ?? 0,
         updatedAt: now,
@@ -572,10 +776,114 @@ export const useApplicationsStore = defineStore('applications', {
     },
 
     async updateStatus(id: number, status: ApplicationStatus) {
-      await db.applications.update(id, { status, updatedAt: new Date().toISOString() });
-      this.items = this.items.map((item) =>
-        item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item,
+      const now = new Date().toISOString();
+      const eventDate = now.slice(0, 10);
+      this.items = this.items.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+
+        const nextJourneyEvents = [
+          ...(item.journeyEvents ?? []),
+          {
+            id: createJourneyEventId(),
+            status,
+            eventDate,
+            note: 'Status updated from board',
+            archivedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+        const derived = this.syncCurrentStatusFromJourney({
+          status,
+          appliedDate: item.appliedDate,
+          journeyEvents: nextJourneyEvents,
+        });
+
+        return {
+          ...item,
+          status: derived.status,
+          appliedDate: derived.appliedDate,
+          journeyEvents: nextJourneyEvents,
+          updatedAt: now,
+        };
+      });
+
+      const updated = this.items.find((item) => item.id === id);
+      if (!updated) {
+        return;
+      }
+
+      await db.applications.update(id, {
+        status: updated.status,
+        appliedDate: updated.appliedDate,
+        journeyEvents: updated.journeyEvents,
+        updatedAt: now,
+      });
+    },
+
+    addJourneyEventToDraft(status: ApplicationStatus, eventDate: string, note: string) {
+      const normalizedDate = toIsoDate(eventDate, '');
+      if (!normalizedDate) {
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const nextEvent: ApplicationJourneyEvent = {
+        id: createJourneyEventId(),
+        status,
+        eventDate: normalizedDate,
+        note: note.trim(),
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      this.draft.journeyEvents = [...(this.draft.journeyEvents ?? []), nextEvent];
+      const derived = this.syncCurrentStatusFromJourney({
+        status: this.draft.status,
+        appliedDate: this.draft.appliedDate,
+        journeyEvents: this.draft.journeyEvents,
+      });
+      this.draft.status = derived.status;
+      this.draft.appliedDate = derived.appliedDate;
+      return nextEvent;
+    },
+
+    updateDraftJourneyEventNote(eventId: string, note: string) {
+      const now = new Date().toISOString();
+      this.draft.journeyEvents = (this.draft.journeyEvents ?? []).map((event) =>
+        event.id === eventId ? { ...event, note: note.trim(), updatedAt: now } : event,
       );
+    },
+
+    archiveDraftJourneyEvent(eventId: string) {
+      const now = new Date().toISOString();
+      this.draft.journeyEvents = (this.draft.journeyEvents ?? []).map((event) =>
+        event.id === eventId ? { ...event, archivedAt: now, updatedAt: now } : event,
+      );
+      const derived = this.syncCurrentStatusFromJourney({
+        status: this.draft.status,
+        appliedDate: this.draft.appliedDate,
+        journeyEvents: this.draft.journeyEvents,
+      });
+      this.draft.status = derived.status;
+      this.draft.appliedDate = derived.appliedDate;
+    },
+
+    restoreDraftJourneyEvent(eventId: string) {
+      const now = new Date().toISOString();
+      this.draft.journeyEvents = (this.draft.journeyEvents ?? []).map((event) =>
+        event.id === eventId ? { ...event, archivedAt: null, updatedAt: now } : event,
+      );
+      const derived = this.syncCurrentStatusFromJourney({
+        status: this.draft.status,
+        appliedDate: this.draft.appliedDate,
+        journeyEvents: this.draft.journeyEvents,
+      });
+      this.draft.status = derived.status;
+      this.draft.appliedDate = derived.appliedDate;
     },
 
     async toggleFavorite(item: ApplicationRecord, rating: number) {
@@ -975,6 +1283,7 @@ export const useApplicationsStore = defineStore('applications', {
           notes: 'Automated store health check record.',
           priority: 'Medium',
           followUpDate: '',
+          journeyEvents: [],
           favoriteRating: 0,
         };
         await this.save();

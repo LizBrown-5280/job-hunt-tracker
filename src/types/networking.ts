@@ -87,6 +87,7 @@ export type RecruiterRecord = {
   id: number;
   fullName: string;
   companyId: number | null;
+  companyIds: number[];
   website: string;
   industryFocus: string[];
   street: string;

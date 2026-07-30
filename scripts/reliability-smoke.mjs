@@ -142,11 +142,9 @@ async function run() {
     const positionUpdated = `${positionInitial} Updated`;
     const recruiterInitial = `Smoke Recruiter ${runId}`;
     const recruiterUpdated = `${recruiterInitial} Updated`;
-    const nestedCompany = `Nested Company ${runId}`;
-    const nestedRecruiter = `Nested Recruiter ${runId}`;
-    const nestedRole = `Nested Role ${runId}`;
-    const nestedAction = `Nested action ${runId}`;
-    const linkedAction = `Smoke linked action ${runId}`;
+    const journeyAction = `Smoke journey action ${runId}`;
+    const journeyActionUpdated = `${journeyAction} updated`;
+    const journeyNote = `Journey note ${runId}`;
 
     await page.goto(DEV_URL, { waitUntil: 'networkidle' });
 
@@ -167,96 +165,6 @@ async function run() {
     });
 
     await page.reload({ waitUntil: 'networkidle' });
-
-    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
-    await page.getByRole('textbox', { name: 'Company' }).fill(`Nested draft company ${runId}`);
-    await page.getByRole('textbox', { name: 'Role' }).fill(nestedRole);
-    await page.getByLabel('Next action').fill(nestedAction);
-    await page.getByRole('button', { name: 'Open recruiters' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}`), { timeout: 10000 });
-
-    await page.getByLabel('Recruiting firm name').fill(nestedRecruiter);
-    await page
-      .getByPlaceholder('Add notes about the recruiting firm')
-      .fill(`Nested recruiter note ${runId}`);
-    await page.getByRole('button', { name: 'Create company' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/companies')}`), { timeout: 10000 });
-
-    await page.getByLabel('Company name').fill(nestedCompany);
-    await page.getByRole('button', { name: 'Save company' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}`), { timeout: 10000 });
-
-    const hiringForCompanyValue = (
-      await page.getByLabel('Hiring for company (optional)').inputValue()
-    ).trim();
-    if (!hiringForCompanyValue.includes(nestedCompany)) {
-      throw new Error(
-        `Expected nested recruiter to link company "${nestedCompany}", received "${hiringForCompanyValue}".`,
-      );
-    }
-
-    await page.getByRole('button', { name: 'Save recruiting firm' }).click();
-    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}`), { timeout: 10000 });
-
-    const restoredCompany = (
-      await page.getByRole('textbox', { name: 'Company' }).inputValue()
-    ).trim();
-    if (restoredCompany !== nestedCompany) {
-      throw new Error(
-        `Expected nested unwind company to be "${nestedCompany}", received "${restoredCompany}".`,
-      );
-    }
-
-    const restoredRole = (await page.getByRole('textbox', { name: 'Role' }).inputValue()).trim();
-    if (restoredRole !== nestedRole) {
-      throw new Error(
-        `Expected nested unwind role to be "${nestedRole}", received "${restoredRole}".`,
-      );
-    }
-
-    const restoredAction = (await page.getByLabel('Next action').inputValue()).trim();
-    if (restoredAction !== nestedAction) {
-      throw new Error(
-        `Expected nested unwind next action to be "${nestedAction}", received "${restoredAction}".`,
-      );
-    }
-
-    const nestedRecruiterLinkedValue = (
-      await page.getByLabel('Linked recruiter').inputValue()
-    ).trim();
-    if (!nestedRecruiterLinkedValue.includes(nestedRecruiter)) {
-      throw new Error(
-        `Expected nested unwind linked recruiter to include "${nestedRecruiter}", received "${nestedRecruiterLinkedValue}".`,
-      );
-    }
-
-    await page.getByRole('button', { name: 'Save application' }).click();
-
-    const nestedActionText = page.getByText(`Next: ${nestedAction}`, { exact: true });
-    const nestedCard = nestedActionText.locator(
-      'xpath=ancestor::div[contains(@class,"q-card")][1]',
-    );
-    await nestedCard.waitFor({ timeout: 10000 });
-    await nestedCard
-      .getByText(`Company: ${nestedCompany}`, { exact: true })
-      .waitFor({ timeout: 10000 });
-
-    await nestedCard.getByRole('button', { name: 'Delete' }).click();
-    await nestedActionText.waitFor({ state: 'detached', timeout: 10000 });
-
-    await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
-    let nestedRecruiterCard = getEntityCardByTitle(page, nestedRecruiter);
-    await nestedRecruiterCard.getByRole('button', { name: 'Delete' }).click();
-    await page
-      .getByText(nestedRecruiter, { exact: true })
-      .waitFor({ state: 'detached', timeout: 10000 });
-
-    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
-    let nestedCompanyCard = getEntityCardByTitle(page, nestedCompany);
-    await nestedCompanyCard.getByRole('button', { name: 'Delete' }).click();
-    await page
-      .getByText(nestedCompany, { exact: true })
-      .waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByLabel('Company name').fill(companyInitial);
@@ -287,8 +195,8 @@ async function run() {
     companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'View applications' }).click();
     await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}`), { timeout: 10000 });
-    await assertSearchPrefill(page, 'Search applications', companyUpdated);
-    await page.getByLabel('Search applications').fill('');
+    await assertSearchPrefill(page, 'Search journeys', companyUpdated);
+    await page.getByLabel('Search journeys').fill('');
 
     await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByLabel('Position title').fill(positionInitial);
@@ -305,92 +213,17 @@ async function run() {
     positionCard = getEntityCardByTitle(page, positionUpdated);
     await positionCard.getByRole('button', { name: 'View applications' }).click();
     await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}`), { timeout: 10000 });
-    await assertSearchPrefill(page, 'Search applications', positionUpdated);
-    await page.getByLabel('Search applications').fill('');
-
-    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
-    await page.getByRole('textbox', { name: 'Company' }).fill(companyUpdated);
-    await selectQOption(page, 'Linked company', companyUpdated);
-    await page.getByRole('textbox', { name: 'Role' }).fill(positionUpdated);
-    await selectQOption(page, 'Linked position', positionUpdated);
-    await page.getByLabel('Next action').fill(linkedAction);
-    await page.getByRole('button', { name: 'Save application' }).click();
-
-    const linkedActionText = page.getByText(`Next: ${linkedAction}`, { exact: true });
-    const linkedCard = linkedActionText.locator(
-      'xpath=ancestor::div[contains(@class,"q-card")][1]',
-    );
-    await linkedCard.waitFor({ timeout: 10000 });
-    await linkedCard
-      .getByText(`Company: ${companyUpdated}`, { exact: true })
-      .waitFor({ timeout: 10000 });
-    await linkedCard
-      .getByText(`Position: ${positionUpdated}`, { exact: true })
-      .waitFor({ timeout: 10000 });
-
-    await linkedCard.getByRole('button', { name: 'Edit' }).click();
-    await page.getByRole('textbox', { name: 'Company' }).fill(`Manual Drift Co ${runId}`);
-    await page.getByRole('textbox', { name: 'Role' }).fill(`Manual Drift Role ${runId}`);
-    await page.getByRole('button', { name: 'Save changes' }).click();
-    await linkedActionText.waitFor({ timeout: 10000 });
-
-    await linkedCard.getByRole('button', { name: 'Edit' }).click();
-    const canonicalCompany = (
-      await page.getByRole('textbox', { name: 'Company' }).inputValue()
-    ).trim();
-    const canonicalRole = (await page.getByRole('textbox', { name: 'Role' }).inputValue()).trim();
-
-    if (canonicalCompany !== companyUpdated) {
-      throw new Error(
-        `Expected linked company value to normalize to "${companyUpdated}", received "${canonicalCompany}".`,
-      );
-    }
-
-    if (canonicalRole !== positionUpdated) {
-      throw new Error(
-        `Expected linked role value to normalize to "${positionUpdated}", received "${canonicalRole}".`,
-      );
-    }
-
-    await page.getByRole('button', { name: 'Cancel' }).click();
-
-    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
-    positionCard = getEntityCardByTitle(page, positionUpdated);
-    await positionCard.getByRole('button', { name: 'Delete' }).click();
-    await page.getByText('Linked records found', { exact: false }).waitFor({ timeout: 10000 });
-    await page.locator('.q-dialog').getByRole('button', { name: 'Cancel' }).click();
-    await page.getByText(positionUpdated, { exact: true }).waitFor({ timeout: 10000 });
-
-    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
-    companyCard = getEntityCardByTitle(page, companyUpdated);
-    await companyCard.getByRole('button', { name: 'Delete' }).click();
-    await page.getByText('Linked records found', { exact: false }).waitFor({ timeout: 10000 });
-    await page.locator('.q-dialog').getByRole('button', { name: 'Cancel' }).click();
-    await page.getByText(companyUpdated, { exact: true }).waitFor({ timeout: 10000 });
-
-    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
-    await linkedCard.getByRole('button', { name: 'Delete' }).click();
-    await page
-      .getByText(`Next: ${linkedAction}`, { exact: true })
-      .waitFor({ state: 'detached', timeout: 10000 });
-
-    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
-    positionCard = getEntityCardByTitle(page, positionUpdated);
-    await positionCard.getByRole('button', { name: 'Delete' }).click();
-    await page
-      .getByText(positionUpdated, { exact: true })
-      .waitFor({ state: 'detached', timeout: 10000 });
-
-    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
-    companyCard = getEntityCardByTitle(page, companyUpdated);
-    await companyCard.getByRole('button', { name: 'Delete' }).click();
-    await page
-      .getByText(companyUpdated, { exact: true })
-      .waitFor({ state: 'detached', timeout: 10000 });
+    await assertSearchPrefill(page, 'Search journeys', positionUpdated);
+    await page.getByLabel('Search journeys').fill('');
 
     await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByLabel('Recruiting firm name').fill(recruiterInitial);
     await page.getByLabel('Website').fill(`https://smoke-${runId}.example.com`);
+    await page.getByRole('button', { name: 'Add Company' }).click();
+    await selectQOption(page, 'Hiring for company (optional)', companyUpdated);
+    await page
+      .getByPlaceholder('Add notes about the recruiting firm')
+      .fill(`Recruiter note ${runId}`);
     await page.getByRole('button', { name: 'Save recruiting firm' }).click();
     await page.getByText(recruiterInitial, { exact: true }).waitFor({ timeout: 10000 });
 
@@ -401,32 +234,36 @@ async function run() {
     await page.getByText(recruiterUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
     await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
-    await page.getByRole('textbox', { name: 'Company' }).fill(companyUpdated);
-    await page.getByRole('textbox', { name: 'Role' }).fill(`Recruiter-linked role ${runId}`);
-    await selectQOption(page, 'Linked recruiter', recruiterUpdated);
-    const recruiterAction = `Recruiter linked action ${runId}`;
-    await page.getByLabel('Next action').fill(recruiterAction);
-    await page.getByRole('button', { name: 'Save application' }).click();
+    await selectQOption(page, 'Company', companyUpdated);
+    await selectQOption(page, 'Position', positionUpdated);
+    await selectQOption(page, 'Recruiter (optional)', recruiterUpdated);
+    await selectQOption(page, 'Journey status', 'Applied');
+    await page.getByLabel('Next action').fill(journeyAction);
+    await page.getByLabel('Status note (optional)').fill(journeyNote);
+    await page.getByRole('button', { name: 'Add Journey Status' }).click();
+    await page.getByRole('button', { name: 'Save Journey' }).click();
 
-    const recruiterLinkedActionText = page.getByText(`Next: ${recruiterAction}`, { exact: true });
-    const recruiterLinkedCard = recruiterLinkedActionText.locator(
+    let journeyActionText = page.getByText(`Next: ${journeyAction}`, { exact: true });
+    let journeyCard = journeyActionText.locator(
       'xpath=ancestor::div[contains(@class,"q-card")][1]',
     );
-    await recruiterLinkedCard.waitFor({ timeout: 10000 });
-    await recruiterLinkedCard
+    await journeyCard.waitFor({ timeout: 10000 });
+    await journeyCard
+      .getByText(`Company: ${companyUpdated}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+    await journeyCard
+      .getByText(`Position: ${positionUpdated}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+    await journeyCard
       .getByText(`Recruiter: ${recruiterUpdated}`, { exact: true })
       .waitFor({ timeout: 10000 });
 
-    await recruiterLinkedCard.getByRole('button', { name: 'Edit' }).click();
-    const recruiterField = page.getByLabel('Linked recruiter');
-    await recruiterField.click();
-    const recruiterFieldValue = (await recruiterField.inputValue()).trim();
-    if (!recruiterFieldValue.includes(recruiterUpdated)) {
-      throw new Error(
-        `Expected linked recruiter input to include "${recruiterUpdated}", received "${recruiterFieldValue}".`,
-      );
-    }
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await journeyCard.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Next action').fill(journeyActionUpdated);
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    journeyActionText = page.getByText(`Next: ${journeyActionUpdated}`, { exact: true });
+    await journeyActionText.waitFor({ timeout: 10000 });
+    journeyCard = journeyActionText.locator('xpath=ancestor::div[contains(@class,"q-card")][1]');
 
     await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
     recruiterCard = getEntityCardByTitle(page, recruiterUpdated);
@@ -437,29 +274,51 @@ async function run() {
     await page.getByText(recruiterRenamed, { exact: true }).waitFor({ timeout: 10000 });
 
     await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
-    await page
+    await journeyActionText.waitFor({ timeout: 10000 });
+    journeyCard = journeyActionText.locator('xpath=ancestor::div[contains(@class,"q-card")][1]');
+    await journeyCard
       .getByText(`Recruiter: ${recruiterRenamed}`, { exact: true })
       .waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
+    positionCard = getEntityCardByTitle(page, positionUpdated);
+    await positionCard.getByRole('button', { name: 'Archive' }).click();
+    await page.getByText('Linked records found', { exact: false }).waitFor({ timeout: 10000 });
+    await page.locator('.q-dialog').getByRole('button', { name: 'Cancel' }).click();
+    await page.getByText(positionUpdated, { exact: true }).waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    companyCard = getEntityCardByTitle(page, companyUpdated);
+    await companyCard.getByRole('button', { name: 'Archive' }).click();
+    await page.getByText('Linked records found', { exact: false }).waitFor({ timeout: 10000 });
+    await page.locator('.q-dialog').getByRole('button', { name: 'Cancel' }).click();
+    await page.getByText(companyUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
     await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
-    await recruiterLinkedActionText.waitFor({ timeout: 10000 });
-    await recruiterLinkedCard
-      .getByText(`Recruiter: ${recruiterRenamed}`, { exact: true })
-      .waitFor({ timeout: 10000 });
+    await journeyCard.getByRole('button', { name: 'Archive' }).click();
+    await page
+      .getByText(`Next: ${journeyActionUpdated}`, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
 
-    await recruiterLinkedCard.getByRole('button', { name: 'Delete' }).click();
-    await recruiterLinkedActionText.waitFor({ state: 'detached', timeout: 10000 });
+    await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
+    positionCard = getEntityCardByTitle(page, positionUpdated);
+    await positionCard.getByRole('button', { name: 'Archive' }).click();
+    await page
+      .getByText(positionUpdated, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
     recruiterCard = getEntityCardByTitle(page, recruiterRenamed);
-    await recruiterCard.getByRole('button', { name: 'Delete' }).click();
+    await recruiterCard.getByRole('button', { name: 'Archive' }).click();
     await page
       .getByText(recruiterRenamed, { exact: true })
       .waitFor({ state: 'detached', timeout: 10000 });
 
-    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    companyCard = getEntityCardByTitle(page, companyUpdated);
+    await companyCard.getByRole('button', { name: 'Archive' }).click();
     await page
-      .getByText(`Recruiter: ${recruiterRenamed}`, { exact: true })
+      .getByText(companyUpdated, { exact: true })
       .waitFor({ state: 'detached', timeout: 10000 });
 
     await browser.close();

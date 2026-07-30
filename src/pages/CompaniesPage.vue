@@ -105,6 +105,92 @@
             />
 
             <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Relationship</div>
+              <div class="row items-center q-mb-xs">
+                <div class="text-subtitle2">Recruiting Firms</div>
+                <q-space />
+                <q-btn
+                  color="primary"
+                  outline
+                  dense
+                  icon="add"
+                  label="Add Recruiter"
+                  @click="addRecruiterRelationshipRow"
+                />
+              </div>
+              <div class="column q-gutter-sm q-mb-sm">
+                <div
+                  v-for="relationshipRow in recruiterRelationshipRows"
+                  :key="relationshipRow.rowId"
+                  class="q-pa-sm bg-grey-1 rounded-borders"
+                >
+                  <div class="row q-col-gutter-sm items-center">
+                    <div class="col">
+                      <q-select
+                        v-model="relationshipRow.recruiterId"
+                        :options="recruiterOptions"
+                        option-label="label"
+                        option-value="value"
+                        label="Recruiting firm (optional)"
+                        filled
+                        dense
+                        emit-value
+                        map-options
+                        clearable
+                      />
+                    </div>
+                    <div class="col-auto">
+                      <q-btn
+                        class="linked-add-btn"
+                        outline
+                        color="primary"
+                        size="sm"
+                        icon="person_add"
+                        label="Create New"
+                        @click="openRecruiterCreateFromForm"
+                      />
+                    </div>
+                    <div class="col-auto">
+                      <q-btn
+                        flat
+                        dense
+                        color="negative"
+                        icon="delete"
+                        aria-label="Remove recruiter row"
+                        @click="removeRecruiterRelationshipRow(relationshipRow.rowId)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <q-banner
+                v-if="selectedRecruiterReassignWarning.length"
+                dense
+                rounded
+                class="q-mb-sm warning-banner"
+              >
+                <div
+                  v-for="warning in selectedRecruiterReassignWarning"
+                  :key="warning"
+                  class="q-mb-xs"
+                >
+                  {{ warning }}
+                </div>
+              </q-banner>
+              <q-banner v-if="!hasRecruiters" dense rounded class="q-mb-sm warning-banner">
+                No recruiting firms yet. Create one to link it to this company.
+                <template #action>
+                  <q-btn
+                    flat
+                    color="primary"
+                    label="Create recruiter"
+                    @click="openRecruiterCreateFromForm"
+                  />
+                </template>
+              </q-banner>
+            </section>
+
+            <section class="form-section-spacing">
               <div class="text-subtitle2 q-mb-xs">Additional Information</div>
               <q-select
                 v-model="store.draft.size"
@@ -149,7 +235,7 @@
                 flat
                 color="grey-7"
                 label="Cancel"
-                @click="store.resetDraft()"
+                @click="cancelEditCompany"
               />
             </div>
           </q-form>
@@ -282,6 +368,13 @@
                   <q-btn
                     size="xs"
                     flat
+                    color="teal"
+                    label="Add recruiter"
+                    @click="openRecruiterCreateForCompany(item.id)"
+                  />
+                  <q-btn
+                    size="xs"
+                    flat
                     color="indigo"
                     label="View applications"
                     @click="openApplicationsForCompany(item.name)"
@@ -295,7 +388,7 @@
                     outline
                     color="primary"
                     label="Edit"
-                    @click="store.startEdit(item)"
+                    @click="startEditCompany(item)"
                   />
                   <q-btn
                     v-if="!item.archivedAt"
@@ -388,6 +481,56 @@ const fundingStageOptions = [
 ];
 const companyStatusOptions = ['Active', 'Acquired', 'IPO', 'Closed', 'Unknown'];
 const archiveViewOptions: Array<'Active' | 'Archived' | 'All'> = ['Active', 'Archived', 'All'];
+const recruiterRelationshipRows = ref<Array<{ rowId: number; recruiterId: number | null }>>([]);
+
+const recruiterOptions = computed(() =>
+  recruitersStore.activeItems
+    .slice()
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+    .map((recruiter) => ({
+      label: recruiter.fullName,
+      value: recruiter.id,
+    })),
+);
+
+const hasRecruiters = computed(() => recruiterOptions.value.length > 0);
+
+const selectedRecruiterReassignWarning = computed(() => {
+  const messages: string[] = [];
+  const currentCompanyId = editingId.value;
+
+  recruiterRelationshipRows.value.forEach((row) => {
+    if (row.recruiterId == null) {
+      return;
+    }
+
+    const recruiter = recruitersStore.activeItems.find((item) => item.id === row.recruiterId);
+    if (!recruiter) {
+      return;
+    }
+
+    const linkedCompanyIds = recruiter.companyIds?.length
+      ? recruiter.companyIds
+      : recruiter.companyId != null
+        ? [recruiter.companyId]
+        : [];
+
+    const conflictingCompanyId = linkedCompanyIds.find(
+      (companyId) => companyId !== currentCompanyId,
+    );
+    if (conflictingCompanyId == null) {
+      return;
+    }
+
+    const currentCompanyName =
+      store.items.find((item) => item.id === conflictingCompanyId)?.name ?? 'another company';
+    messages.push(
+      `${recruiter.fullName} is already linked to ${currentCompanyName}. Saving will add this company as another relationship.`,
+    );
+  });
+
+  return Array.from(new Set(messages));
+});
 
 const positionCountByCompanyId = computed(() => {
   return positionsStore.activeItems.reduce<Record<number, number>>((acc, item) => {
@@ -402,11 +545,18 @@ const positionCountByCompanyId = computed(() => {
 
 const recruiterCountByCompanyId = computed(() => {
   return recruitersStore.activeItems.reduce<Record<number, number>>((acc, item) => {
-    if (item.companyId == null) {
+    const companyIds = item.companyIds?.length
+      ? item.companyIds
+      : item.companyId != null
+        ? [item.companyId]
+        : [];
+    if (!companyIds.length) {
       return acc;
     }
 
-    acc[item.companyId] = (acc[item.companyId] ?? 0) + 1;
+    companyIds.forEach((companyId) => {
+      acc[companyId] = (acc[companyId] ?? 0) + 1;
+    });
     return acc;
   }, {});
 });
@@ -588,6 +738,7 @@ onMounted(async () => {
 async function submitCompany() {
   const currentEditingId = editingId.value;
   const existingIds = new Set(store.items.map((item) => item.id));
+  const recruiterIdsToLink = getSelectedRecruiterIds();
   const nextName = store.draft.name.trim();
   const previousName =
     currentEditingId != null
@@ -598,11 +749,83 @@ async function submitCompany() {
   const savedCompanyId =
     currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
 
+  if (savedCompanyId != null) {
+    recruiterIdsToLink.forEach((recruiterId) => {
+      recruitersStore.addCompanyReference(recruiterId, savedCompanyId, 'updated');
+    });
+  }
+
+  recruiterRelationshipRows.value = [];
+
   if (currentEditingId != null && nextName && nextName !== previousName) {
     await applicationsStore.syncCompanyNameReferences(currentEditingId, nextName);
   }
 
   returnFromHandoff(savedCompanyId);
+}
+
+function startEditCompany(item: (typeof store.items)[number]) {
+  store.startEdit(item);
+
+  const linkedRecruiterIds = recruitersStore.activeItems
+    .filter((recruiter) => {
+      const companyIds = recruiter.companyIds?.length
+        ? recruiter.companyIds
+        : recruiter.companyId != null
+          ? [recruiter.companyId]
+          : [];
+      return companyIds.includes(item.id);
+    })
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((recruiter) => recruiter.id);
+
+  recruiterRelationshipRows.value = linkedRecruiterIds.map((recruiterId, index) => ({
+    rowId: index + 1,
+    recruiterId,
+  }));
+}
+
+function cancelEditCompany() {
+  store.resetDraft();
+  recruiterRelationshipRows.value = [];
+}
+
+function openRecruiterCreateFromForm() {
+  const companyId = editingId.value;
+  if (companyId != null) {
+    openRecruiterCreateForCompany(companyId);
+    return;
+  }
+
+  void router.push({ path: '/recruiters' });
+}
+
+function addRecruiterRelationshipRow() {
+  recruiterRelationshipRows.value.push(createRecruiterRelationshipRow());
+}
+
+function removeRecruiterRelationshipRow(rowId: number) {
+  recruiterRelationshipRows.value = recruiterRelationshipRows.value.filter(
+    (row) => row.rowId !== rowId,
+  );
+}
+
+function createRecruiterRelationshipRow(recruiterId: number | null = null) {
+  const nextRowId = recruiterRelationshipRows.value.length
+    ? Math.max(...recruiterRelationshipRows.value.map((row) => row.rowId)) + 1
+    : 1;
+
+  return { rowId: nextRowId, recruiterId };
+}
+
+function getSelectedRecruiterIds() {
+  return Array.from(
+    new Set(
+      recruiterRelationshipRows.value
+        .map((row) => row.recruiterId)
+        .filter((id): id is number => typeof id === 'number' && Number.isFinite(id)),
+    ),
+  );
 }
 
 function returnFromHandoff(companyId: number | null) {
@@ -618,7 +841,14 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
     (item) => !item.archivedAt && item.companyId === companyId,
   ).length;
   const linkedRecruiters = recruitersStore.items.filter(
-    (item) => !item.archivedAt && item.companyId === companyId,
+    (item) =>
+      !item.archivedAt &&
+      (item.companyIds?.length
+        ? item.companyIds
+        : item.companyId != null
+          ? [item.companyId]
+          : []
+      ).includes(companyId),
   ).length;
   const linkedApplications = applicationsStore.activeItems.filter(
     (item) => item.companyId === companyId,
@@ -760,6 +990,10 @@ function openPositionsForCompany(name: string) {
 
 function openRecruitersForCompany(name: string) {
   void router.push({ path: '/recruiters', query: { q: name } });
+}
+
+function openRecruiterCreateForCompany(companyId: number) {
+  void router.push({ path: '/recruiters', query: { companyId: String(companyId) } });
 }
 
 function openApplicationsForCompany(name: string) {

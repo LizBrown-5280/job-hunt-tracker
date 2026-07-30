@@ -25,7 +25,7 @@
         </q-item>
         <q-item clickable to="/applications" class="nav-item">
           <q-item-section avatar><q-icon name="work" /></q-item-section>
-          <q-item-section>Applications</q-item-section>
+          <q-item-section>Journeys</q-item-section>
         </q-item>
         <q-item clickable to="/positions" class="nav-item">
           <q-item-section avatar><q-icon name="badge" /></q-item-section>

@@ -113,37 +113,72 @@
                 dense
                 class="q-mb-sm"
               />
-              <div class="row q-col-gutter-sm items-center q-mb-sm">
-                <div class="col">
-                  <q-select
-                    v-model="store.draft.companyId"
-                    :options="companyOptions"
-                    option-label="label"
-                    option-value="value"
-                    label="Hiring for company (optional)"
-                    filled
-                    dense
-                    emit-value
-                    map-options
-                    clearable
-                  />
-                </div>
-                <div class="col-auto">
-                  <q-btn
-                    class="linked-add-btn"
-                    outline
-                    color="primary"
-                    size="sm"
-                    icon="business"
-                    label="Add New Company"
-                    @click="openCompaniesPage"
-                  />
+              <div class="row items-center q-mb-xs">
+                <div class="text-subtitle2">Hiring Companies</div>
+                <q-space />
+                <q-btn
+                  color="primary"
+                  outline
+                  dense
+                  icon="add"
+                  label="Add Company"
+                  @click="addCompanyRelationshipRow"
+                />
+              </div>
+              <div class="column q-gutter-sm q-mb-sm">
+                <div
+                  v-for="relationshipRow in companyRelationshipRows"
+                  :key="relationshipRow.rowId"
+                  class="q-pa-sm bg-grey-1 rounded-borders"
+                >
+                  <div class="row q-col-gutter-sm items-center">
+                    <div class="col">
+                      <q-select
+                        v-model="relationshipRow.companyId"
+                        :options="companyOptions"
+                        option-label="label"
+                        option-value="value"
+                        label="Hiring for company (optional)"
+                        filled
+                        dense
+                        emit-value
+                        map-options
+                        clearable
+                      />
+                    </div>
+                    <div class="col-auto">
+                      <q-btn
+                        class="linked-add-btn"
+                        outline
+                        color="primary"
+                        size="sm"
+                        icon="business"
+                        label="Create New"
+                        @click="openCompaniesPageForRelationship(relationshipRow.rowId)"
+                      />
+                    </div>
+                    <div class="col-auto">
+                      <q-btn
+                        flat
+                        dense
+                        color="negative"
+                        icon="delete"
+                        aria-label="Remove company row"
+                        @click="removeCompanyRelationshipRow(relationshipRow.rowId)"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
                 No companies yet. Create one to link this recruiting firm to a hiring company.
                 <template #action>
-                  <q-btn flat color="primary" label="Create company" @click="openCompaniesPage" />
+                  <q-btn
+                    flat
+                    color="primary"
+                    label="Create company"
+                    @click="openCompaniesPageForRelationship()"
+                  />
                 </template>
               </q-banner>
             </section>
@@ -159,7 +194,7 @@
                 flat
                 color="grey-7"
                 label="Cancel"
-                @click="store.resetDraft()"
+                @click="cancelEditRecruiter"
               />
             </div>
           </q-form>
@@ -209,8 +244,8 @@
                 <div class="row items-start justify-between">
                   <div>
                     <div class="text-subtitle1">{{ item.fullName }}</div>
-                    <div v-if="item.companyId != null" class="text-caption text-grey-7">
-                      Hiring for: {{ companyNameById[item.companyId] ?? 'Unknown company' }}
+                    <div v-if="getHiringCompaniesLabel(item)" class="text-caption text-grey-7">
+                      Hiring for: {{ getHiringCompaniesLabel(item) }}
                     </div>
                     <div v-if="formatPrimaryContact(item)" class="text-caption text-grey-7">
                       Main contact: {{ formatPrimaryContact(item) }}
@@ -261,7 +296,7 @@
                     outline
                     color="primary"
                     label="Edit"
-                    @click="store.startEdit(item)"
+                    @click="startEditRecruiter(item)"
                   />
                   <q-btn
                     v-if="!item.archivedAt"
@@ -308,6 +343,7 @@ import AddressContactSection from '@/components/forms/AddressContactSection.vue'
 import NotesSection from '@/components/forms/NotesSection.vue';
 import type {
   PositionLinkHistoryEntry,
+  RecruiterRecord,
   RecruiterLinkHistoryEntry,
   RecruiterRelationship,
 } from '@/types/networking';
@@ -343,6 +379,8 @@ const industryOptions = [
   'Other',
 ];
 const filteredIndustryOptions = ref([...industryOptions]);
+const companyRelationshipRows = ref<Array<{ rowId: number; companyId: number | null }>>([]);
+const pendingCompanyRowId = ref<number | null>(null);
 
 const companyOptions = computed(() =>
   companiesStore.activeItems
@@ -387,6 +425,14 @@ onMounted(() => {
   positionsStore.init();
 
   restoreHandoffState();
+  syncCompanyRowsFromDraft();
+
+  const prefillCompanyId = getPrefillCompanyId();
+  if (prefillCompanyId != null && store.editingId == null) {
+    addCompanyIdToRows(prefillCompanyId);
+    syncDraftCompanyLinksFromRows();
+    clearPrefillCompanyIdQuery();
+  }
 
   const prefillQuery = getDeepLinkQuery();
   if (prefillQuery) {
@@ -396,21 +442,26 @@ onMounted(() => {
 });
 
 async function submitRecruiter() {
+  syncDraftCompanyLinksFromRows();
   const currentEditingId = editingId.value;
   const existingIds = new Set(store.items.map((item) => item.id));
   await store.save();
+
+  companyRelationshipRows.value = [];
 
   const savedRecruitingFirmId =
     currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
   returnFromHandoff(savedRecruitingFirmId);
 }
 
-function openCompaniesPage() {
+function openCompaniesPageForRelationship(rowId?: number) {
+  pendingCompanyRowId.value = rowId ?? null;
   persistDraftForHandoff();
   navigateToCreateWithHandoff(router, route.path, '/companies', RECRUITERS_DRAFT_KEY, 'companyId');
 }
 
 function persistDraftForHandoff() {
+  syncDraftCompanyLinksFromRows();
   persistHandoffDraft(RECRUITERS_DRAFT_KEY, store.draft);
 }
 
@@ -428,7 +479,8 @@ function restoreHandoffState() {
 
   const handoffResult = getHandoffResult(route);
   if (handoffResult?.field === 'companyId') {
-    store.draft.companyId = handoffResult.id;
+    setCompanyIdForPendingOrNewRow(handoffResult.id);
+    syncDraftCompanyLinksFromRows();
   }
 
   clearHandoffQuery(route, router);
@@ -436,6 +488,89 @@ function restoreHandoffState() {
 
 function returnFromHandoff(recruitingFirmId: number | null) {
   returnFromHandoffWithId(route, router, recruitingFirmId);
+}
+
+function addCompanyRelationshipRow() {
+  companyRelationshipRows.value.push(createCompanyRelationshipRow());
+}
+
+function removeCompanyRelationshipRow(rowId: number) {
+  companyRelationshipRows.value = companyRelationshipRows.value.filter(
+    (row) => row.rowId !== rowId,
+  );
+}
+
+function createCompanyRelationshipRow(companyId: number | null = null) {
+  const nextRowId = companyRelationshipRows.value.length
+    ? Math.max(...companyRelationshipRows.value.map((row) => row.rowId)) + 1
+    : 1;
+
+  return { rowId: nextRowId, companyId };
+}
+
+function addCompanyIdToRows(companyId: number) {
+  const exists = companyRelationshipRows.value.some((row) => row.companyId === companyId);
+  if (!exists) {
+    companyRelationshipRows.value.push(createCompanyRelationshipRow(companyId));
+  }
+}
+
+function setCompanyIdForPendingOrNewRow(companyId: number) {
+  if (pendingCompanyRowId.value != null) {
+    const targetRow = companyRelationshipRows.value.find(
+      (row) => row.rowId === pendingCompanyRowId.value,
+    );
+    if (targetRow) {
+      targetRow.companyId = companyId;
+      pendingCompanyRowId.value = null;
+      return;
+    }
+  }
+
+  addCompanyIdToRows(companyId);
+  pendingCompanyRowId.value = null;
+}
+
+function syncDraftCompanyLinksFromRows() {
+  const selectedIds = Array.from(
+    new Set(
+      companyRelationshipRows.value
+        .map((row) => row.companyId)
+        .filter((id): id is number => typeof id === 'number' && Number.isFinite(id)),
+    ),
+  );
+
+  store.draft.companyIds = selectedIds;
+  store.draft.companyId = selectedIds[0] ?? null;
+}
+
+function syncCompanyRowsFromDraft() {
+  const draftCompanyIds = Array.isArray(store.draft.companyIds)
+    ? store.draft.companyIds
+    : store.draft.companyId != null
+      ? [store.draft.companyId]
+      : [];
+
+  const uniqueIds = Array.from(
+    new Set(
+      draftCompanyIds.filter((id): id is number => typeof id === 'number' && Number.isFinite(id)),
+    ),
+  );
+
+  companyRelationshipRows.value = uniqueIds.map((companyId, index) => ({
+    rowId: index + 1,
+    companyId,
+  }));
+}
+
+function startEditRecruiter(item: RecruiterRecord) {
+  store.startEdit(item);
+  syncCompanyRowsFromDraft();
+}
+
+function cancelEditRecruiter() {
+  store.resetDraft();
+  companyRelationshipRows.value = [];
 }
 
 function filterIndustryOptions(val: string, update: (fn: () => void) => void, abort: () => void) {
@@ -475,6 +610,18 @@ function formatPrimaryContact(item: (typeof store.items)[number]) {
 
 function displayPhone(item: (typeof store.items)[number]) {
   return item.phone || getPrimaryContact(item)?.phone || '';
+}
+
+function getHiringCompaniesLabel(item: RecruiterRecord) {
+  const companyIds = item.companyIds?.length
+    ? item.companyIds
+    : item.companyId != null
+      ? [item.companyId]
+      : [];
+
+  return companyIds
+    .map((companyId) => companyNameById.value[companyId] ?? `Company #${companyId}`)
+    .join(' · ');
 }
 
 function getCurrentPositionCount(recruiterId: number) {
@@ -588,6 +735,36 @@ function clearDeepLinkQuery() {
 
   const nextQuery = { ...route.query };
   delete nextQuery.q;
+  void router.replace({ path: route.path, query: nextQuery });
+}
+
+function getPrefillCompanyId() {
+  const raw =
+    typeof route.query.companyId === 'string'
+      ? route.query.companyId
+      : Array.isArray(route.query.companyId)
+        ? route.query.companyId[0]
+        : '';
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return companiesStore.activeItems.some((item) => item.id === parsed) ? parsed : null;
+}
+
+function clearPrefillCompanyIdQuery() {
+  if (!('companyId' in route.query)) {
+    return;
+  }
+
+  const nextQuery = { ...route.query };
+  delete nextQuery.companyId;
   void router.replace({ path: route.path, query: nextQuery });
 }
 </script>

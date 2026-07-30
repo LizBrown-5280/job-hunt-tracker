@@ -8,21 +8,21 @@
             <div class="text-subtitle2 text-grey-7">{{ todayLabel }}</div>
           </div>
           <div class="text-subtitle2 text-grey-7">
-            Move applications across your pipeline to keep progress current.
+            Move journeys across your pipeline to keep progress current.
           </div>
           <q-btn
             class="q-mt-md"
             color="primary"
             @click="goToApplications"
-            label="Manage applications"
+            label="Manage journeys"
           />
         </q-card>
       </div>
 
       <div class="col-12 col-md-5">
         <q-card class="q-pa-md">
-          <div class="text-h6 q-mb-sm">Applications in flight</div>
-          <div class="text-body1">{{ activeApplicationsCount }} active applications</div>
+          <div class="text-h6 q-mb-sm">Journeys in flight</div>
+          <div class="text-body1">{{ activeApplicationsCount }} active journeys</div>
           <div class="text-caption text-grey-7 q-mt-xs">
             {{ followUpDueSoonCount }} follow-up{{ followUpDueSoonCount === 1 ? '' : 's' }} due soon
           </div>
@@ -47,7 +47,7 @@
             </div>
           </q-card>
           <div v-else class="text-caption text-grey-7 q-mt-sm">
-            Add a next action to your first application to build momentum.
+            Add a next action to your first journey to build momentum.
           </div>
         </q-card>
       </div>
@@ -164,7 +164,7 @@
               v-if="groupedItems[column.status].length === 0"
               class="text-caption text-grey-7 q-pa-sm board-empty-state"
             >
-              No applications in this stage yet.
+              No journeys in this stage yet.
             </div>
           </div>
         </q-card>
@@ -201,7 +201,7 @@ const welcomeHeading = computed(() => {
 });
 
 const columns = [
-  { title: 'Wishlist', status: 'Wishlist' as const },
+  { title: 'Not Started', status: 'Not Started' as const },
   { title: 'Applied', status: 'Applied' as const },
   { title: 'Interview', status: 'Interview' as const },
   { title: 'Offer / Closed', status: 'Offer' as const },
@@ -220,7 +220,7 @@ const positionTitleById = computed(() =>
 );
 const groupedItems = computed<Record<ApplicationStatus, ApplicationRecord[]>>(() => {
   const groups: Record<ApplicationStatus, ApplicationRecord[]> = {
-    Wishlist: [],
+    'Not Started': [],
     Applied: [],
     Interview: [],
     Offer: [],

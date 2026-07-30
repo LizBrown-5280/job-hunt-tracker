@@ -25,6 +25,7 @@ function createDraft(): RecruiterDraft {
   return {
     fullName: '',
     companyId: null,
+    companyIds: [],
     website: '',
     industryFocus: [],
     street: '',
@@ -37,6 +38,26 @@ function createDraft(): RecruiterDraft {
     relationship: 'New',
     notes: '',
   };
+}
+
+function normalizeCompanyIds(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value.filter((item): item is number => typeof item === 'number' && Number.isFinite(item)),
+    ),
+  );
+}
+
+function areNumberArraysEqual(a: number[], b: number[]) {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return a.every((value, index) => value === b[index]);
 }
 
 function normalizeIndustryFocus(value: unknown): string[] {
@@ -174,12 +195,20 @@ function normalizeRecruiterRecord(item: LegacyRecruiterRecord, index: number): R
   const normalizedContacts = contacts.length ? contacts : legacyContact ? [legacyContact] : [];
   const companyId =
     typeof item.companyId === 'number' && Number.isFinite(item.companyId) ? item.companyId : null;
+  const normalizedCompanyIds = normalizeCompanyIds(item.companyIds);
+  const companyIds = normalizedCompanyIds.length
+    ? normalizedCompanyIds
+    : companyId != null
+      ? [companyId]
+      : [];
+  const primaryCompanyId = companyIds[0] ?? null;
   const createdAt = typeof item.createdAt === 'string' && item.createdAt ? item.createdAt : now;
 
   return {
     id,
     fullName,
-    companyId,
+    companyId: primaryCompanyId,
+    companyIds,
     website,
     industryFocus,
     street,
@@ -189,7 +218,7 @@ function normalizeRecruiterRecord(item: LegacyRecruiterRecord, index: number): R
     phone,
     companyLinkedinUrl,
     contacts: normalizedContacts,
-    linkHistory: normalizeLinkHistory(item.linkHistory, createdAt, companyId),
+    linkHistory: normalizeLinkHistory(item.linkHistory, createdAt, primaryCompanyId),
     relationship:
       item.relationship === 'Active' || item.relationship === 'Dormant' ? item.relationship : 'New',
     notes: typeof item.notes === 'string' ? item.notes.trim() : '',
@@ -312,6 +341,11 @@ export const useRecruitersStore = defineStore('recruiters', {
       this.draft = {
         fullName: item.fullName,
         companyId: item.companyId,
+        companyIds: item.companyIds?.length
+          ? [...item.companyIds]
+          : item.companyId != null
+            ? [item.companyId]
+            : [],
         website: item.website,
         industryFocus: [...item.industryFocus],
         street: item.street,
@@ -344,9 +378,18 @@ export const useRecruitersStore = defineStore('recruiters', {
         .filter((item) => item.name || item.title || item.phone || item.email || item.linkedinUrl);
 
       const now = new Date().toISOString();
+      const normalizedCompanyIds = Array.from(
+        new Set(
+          this.draft.companyIds.filter(
+            (item): item is number => typeof item === 'number' && Number.isFinite(item),
+          ),
+        ),
+      );
+      const primaryCompanyId = normalizedCompanyIds[0] ?? null;
       const payload = {
         fullName: this.draft.fullName.trim(),
-        companyId: this.draft.companyId,
+        companyId: primaryCompanyId,
+        companyIds: normalizedCompanyIds,
         website: this.draft.website.trim(),
         industryFocus: this.draft.industryFocus.map((item) => item.trim()).filter(Boolean),
         street: this.draft.street.trim(),
@@ -371,7 +414,8 @@ export const useRecruitersStore = defineStore('recruiters', {
                 ...item,
                 ...payload,
                 linkHistory:
-                  item.companyId !== payload.companyId
+                  item.companyId !== payload.companyId ||
+                  !areNumberArraysEqual(item.companyIds ?? [], payload.companyIds)
                     ? [
                         ...item.linkHistory,
                         {
@@ -462,19 +506,38 @@ export const useRecruitersStore = defineStore('recruiters', {
       let changed = false;
 
       this.items = this.items.map((item) => {
-        if (item.archivedAt || item.companyId !== fromCompanyId) {
+        if (item.archivedAt) {
           return item;
         }
+
+        const currentCompanyIds = item.companyIds?.length
+          ? item.companyIds
+          : item.companyId != null
+            ? [item.companyId]
+            : [];
+        if (!currentCompanyIds.includes(fromCompanyId)) {
+          return item;
+        }
+
+        const nextCompanyIds = Array.from(
+          new Set(
+            currentCompanyIds
+              .map((value) => (value === fromCompanyId ? toCompanyId : value))
+              .filter((value): value is number => value != null),
+          ),
+        );
+        const nextPrimaryCompanyId = nextCompanyIds[0] ?? null;
 
         changed = true;
         return {
           ...item,
-          companyId: toCompanyId,
+          companyId: nextPrimaryCompanyId,
+          companyIds: nextCompanyIds,
           linkHistory: [
             ...item.linkHistory,
             {
               changedAt: now,
-              companyId: toCompanyId,
+              companyId: nextPrimaryCompanyId,
               reason: 'company-reassigned',
             },
           ],
@@ -484,6 +547,99 @@ export const useRecruitersStore = defineStore('recruiters', {
 
       if (changed) {
         persistRecruiters(this.items);
+      }
+    },
+
+    setCompanyReference(recruiterId: number, companyId: number | null, reason = 'updated') {
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        if (item.archivedAt || item.id !== recruiterId) {
+          return item;
+        }
+
+        const nextCompanyIds = companyId != null ? [companyId] : [];
+        const nextPrimaryCompanyId = nextCompanyIds[0] ?? null;
+        if (
+          item.companyId === nextPrimaryCompanyId &&
+          areNumberArraysEqual(item.companyIds ?? [], nextCompanyIds)
+        ) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          companyId: nextPrimaryCompanyId,
+          companyIds: nextCompanyIds,
+          linkHistory: [
+            ...item.linkHistory,
+            {
+              changedAt: now,
+              companyId: nextPrimaryCompanyId,
+              reason,
+            },
+          ],
+          updatedAt: now,
+        };
+      });
+
+      if (changed) {
+        persistRecruiters(this.items);
+
+        if (this.editingId === recruiterId) {
+          this.draft.companyId = companyId;
+          this.draft.companyIds = companyId != null ? [companyId] : [];
+        }
+      }
+    },
+
+    addCompanyReference(recruiterId: number, companyId: number, reason = 'updated') {
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        if (item.archivedAt || item.id !== recruiterId) {
+          return item;
+        }
+
+        const currentCompanyIds = item.companyIds?.length
+          ? item.companyIds
+          : item.companyId != null
+            ? [item.companyId]
+            : [];
+        if (currentCompanyIds.includes(companyId)) {
+          return item;
+        }
+
+        const nextCompanyIds = [...currentCompanyIds, companyId];
+        const nextPrimaryCompanyId = nextCompanyIds[0] ?? null;
+
+        changed = true;
+        return {
+          ...item,
+          companyId: nextPrimaryCompanyId,
+          companyIds: nextCompanyIds,
+          linkHistory: [
+            ...item.linkHistory,
+            {
+              changedAt: now,
+              companyId,
+              reason,
+            },
+          ],
+          updatedAt: now,
+        };
+      });
+
+      if (changed) {
+        persistRecruiters(this.items);
+
+        if (this.editingId === recruiterId && !this.draft.companyIds.includes(companyId)) {
+          this.draft.companyIds = [...this.draft.companyIds, companyId];
+          this.draft.companyId = this.draft.companyIds[0] ?? null;
+        }
       }
     },
   },
