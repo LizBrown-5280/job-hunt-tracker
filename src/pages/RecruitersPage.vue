@@ -3,60 +3,184 @@
     <div class="row q-col-gutter-md">
       <div class="col-12 col-md-5">
         <q-card class="q-pa-md">
-          <div class="text-h6 q-mb-md">{{ editingId ? 'Edit recruiter' : 'Add recruiter' }}</div>
+          <div class="text-h6 q-mb-md">
+            {{ editingId ? 'Edit recruiting firm' : 'Add recruiting firm' }}
+          </div>
           <q-form @submit.prevent="submitRecruiter">
-            <q-input
-              v-model="store.draft.fullName"
-              label="Full name"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <q-select
-              v-model="store.draft.companyId"
-              :options="companyOptions"
-              option-label="label"
-              option-value="value"
-              label="Company"
-              filled
-              dense
-              emit-value
-              map-options
-              clearable
-              class="q-mb-sm"
-            />
-            <q-input v-model="store.draft.email" label="Email" filled dense class="q-mb-sm" />
-            <q-input
-              v-model="store.draft.linkedinUrl"
-              label="LinkedIn URL"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <q-select
-              v-model="store.draft.relationship"
-              :options="relationshipOptions"
-              label="Relationship"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <q-input
-              v-model="store.draft.notes"
-              type="textarea"
-              autogrow
-              filled
-              label="Notes"
-              maxlength="500"
-              counter
-              class="q-mb-sm"
-            />
+            <section>
+              <q-input
+                v-model="store.draft.fullName"
+                label="Recruiting firm name"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <q-input v-model="store.draft.website" label="Website" filled dense class="q-mb-sm" />
+              <q-select
+                v-model="store.draft.industryFocus"
+                :options="filteredIndustryOptions"
+                label="Industry focus"
+                filled
+                dense
+                clearable
+                use-input
+                input-debounce="0"
+                multiple
+                use-chips
+                @filter="filterIndustryOptions"
+                class="q-mb-sm"
+              />
+            </section>
 
-            <div class="row q-gutter-sm">
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Company Headquarter Address and Phone</div>
+              <q-input
+                v-model="store.draft.street"
+                label="Street address"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <div class="row q-col-gutter-sm">
+                <div class="col-12 col-md-6">
+                  <q-input v-model="store.draft.city" label="City" filled dense class="q-mb-sm" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <q-input v-model="store.draft.state" label="State" filled dense class="q-mb-sm" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <q-input v-model="store.draft.zip" label="ZIP" filled dense class="q-mb-sm" />
+                </div>
+              </div>
+              <q-input
+                v-model="store.draft.phone"
+                label="Phone number"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <q-input
+                v-model="store.draft.companyLinkedinUrl"
+                label="Company LinkedIn URL"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="row items-center q-mb-xs">
+                <div class="text-subtitle2">Recruiting Firm Contacts</div>
+                <q-space />
+                <q-btn
+                  color="primary"
+                  outline
+                  dense
+                  icon="add"
+                  label="Add Name"
+                  @click="store.addContactRow()"
+                />
+              </div>
+              <div class="column q-gutter-sm q-mb-sm">
+                <div
+                  v-for="contact in store.draft.contacts"
+                  :key="contact.rowId"
+                  class="q-pa-sm bg-grey-1 rounded-borders"
+                >
+                  <div class="row q-col-gutter-sm">
+                    <div class="col-12 col-md-6">
+                      <q-input v-model="contact.name" label="Name" filled dense class="q-mb-sm" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <q-input v-model="contact.title" label="Title" filled dense class="q-mb-sm" />
+                    </div>
+                  </div>
+                  <div class="row q-col-gutter-sm">
+                    <div class="col-12 col-md-4">
+                      <q-input
+                        v-model="contact.phone"
+                        label="Phone number"
+                        filled
+                        dense
+                        class="q-mb-sm"
+                      />
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <q-input v-model="contact.email" label="Email" filled dense class="q-mb-sm" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <q-input
+                        v-model="contact.linkedinUrl"
+                        label="LinkedIn URL"
+                        filled
+                        dense
+                        class="q-mb-sm"
+                      />
+                    </div>
+                  </div>
+                  <div class="row justify-end">
+                    <q-btn
+                      flat
+                      dense
+                      color="negative"
+                      label="Delete row"
+                      @click="store.removeContactRow(contact.rowId)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Notes</div>
+              <q-input
+                v-model="store.draft.notes"
+                type="textarea"
+                autogrow
+                filled
+                placeholder="Add notes about the recruiting firm"
+                maxlength="500"
+                counter
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Relationship</div>
+              <q-select
+                v-model="store.draft.relationship"
+                :options="relationshipOptions"
+                label="Relationship"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <q-select
+                v-model="store.draft.companyId"
+                :options="companyOptions"
+                option-label="label"
+                option-value="value"
+                label="Hiring for company (optional)"
+                filled
+                dense
+                emit-value
+                map-options
+                clearable
+                class="q-mb-sm"
+              />
+              <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
+                No companies yet. Create one to link this recruiting firm to a hiring company.
+                <template #action>
+                  <q-btn flat color="primary" label="Create company" @click="openCompaniesPage" />
+                </template>
+              </q-banner>
+            </section>
+
+            <div class="row justify-end q-gutter-sm" style="margin-top: 20px">
               <q-btn
                 color="primary"
                 type="submit"
-                :label="editingId ? 'Save changes' : 'Save recruiter'"
+                :label="editingId ? 'Save changes' : 'Save recruiting firm'"
               />
               <q-btn
                 v-if="editingId"
@@ -73,7 +197,7 @@
       <div class="col-12 col-md-7">
         <q-card class="q-pa-md">
           <div class="row items-center justify-between q-mb-md">
-            <div class="text-h6">Recruiters</div>
+            <div class="text-h6">Recruiting Firms</div>
             <q-select
               v-model="store.filterRelationship"
               :options="filterOptions"
@@ -86,7 +210,7 @@
 
           <q-input
             v-model="store.searchQuery"
-            label="Search recruiters"
+            label="Search recruiting firms"
             filled
             dense
             clearable
@@ -94,7 +218,7 @@
           />
 
           <div v-if="filteredItems.length === 0" class="text-grey-7">
-            No recruiters match this view.
+            No recruiting firms match this view.
           </div>
 
           <div v-else class="column q-gutter-sm">
@@ -103,12 +227,14 @@
                 <div class="row items-start justify-between">
                   <div>
                     <div class="text-subtitle1">{{ item.fullName }}</div>
-                    <div class="text-caption text-grey-7">
-                      {{ companyNameById[item.companyId ?? -1] ?? 'Independent / not set' }}
+                    <div v-if="item.companyId != null" class="text-caption text-grey-7">
+                      Hiring for: {{ companyNameById[item.companyId] ?? 'Unknown company' }}
                     </div>
-                    <div v-if="item.email" class="text-caption">{{ item.email }}</div>
-                    <div v-if="item.linkedinUrl" class="text-caption text-primary">
-                      {{ item.linkedinUrl }}
+                    <div v-if="formatPrimaryContact(item)" class="text-caption text-grey-7">
+                      Main contact: {{ formatPrimaryContact(item) }}
+                    </div>
+                    <div v-if="displayPhone(item)" class="text-caption text-grey-7">
+                      {{ displayPhone(item) }}
                     </div>
                   </div>
                   <q-chip :color="relationshipColor(item.relationship)" text-color="white">
@@ -146,11 +272,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { useRecruitersStore } from '@/stores/recruiters';
+import {
+  clearHandoffQuery,
+  getHandoffResult,
+  navigateToCreateWithHandoff,
+  persistHandoffDraft,
+  restoreHandoffDraft,
+  returnFromHandoffWithId,
+} from '@/composables/navigationHandoff';
 import type { RecruiterRelationship } from '@/types/networking';
 
 const store = useRecruitersStore();
@@ -160,6 +294,28 @@ const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 const relationshipOptions: RecruiterRelationship[] = ['New', 'Active', 'Dormant'];
 const filterOptions: Array<RecruiterRelationship | 'All'> = ['All', ...relationshipOptions];
+const RECRUITERS_DRAFT_KEY = 'job-hunt-tracker-handoff-recruiters-draft-v1';
+const industryOptions = [
+  'Agriculture & Natural Resources',
+  'Construction',
+  'Manufacturing',
+  'Transportation & Logistics',
+  'Wholesale & Retail Trade',
+  'Hospitality & Food Services',
+  'Healthcare',
+  'Technology (IT / Software / Telecom)',
+  'Finance & Insurance',
+  'Real Estate',
+  'Professional Services (Legal, Consulting, Accounting)',
+  'Government & Public Sector',
+  'Education & Training',
+  'Nonprofit & Social Services',
+  'Energy & Utilities (Power/Water)',
+  'Engineering, Architecture & Design',
+  'Arts, Media & Entertainment',
+  'Other',
+];
+const filteredIndustryOptions = ref([...industryOptions]);
 
 const companyOptions = computed(() =>
   companiesStore.items
@@ -177,10 +333,13 @@ const companyNameById = computed(() => {
     return acc;
   }, {});
 });
+const hasCompanies = computed(() => companyOptions.value.length > 0);
 
 onMounted(() => {
   store.init();
   companiesStore.init();
+
+  restoreHandoffState();
 
   const prefillQuery = getDeepLinkQuery();
   if (prefillQuery) {
@@ -190,7 +349,85 @@ onMounted(() => {
 });
 
 async function submitRecruiter() {
+  const currentEditingId = editingId.value;
+  const existingIds = new Set(store.items.map((item) => item.id));
   await store.save();
+
+  const savedRecruitingFirmId =
+    currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
+  returnFromHandoff(savedRecruitingFirmId);
+}
+
+function openCompaniesPage() {
+  persistDraftForHandoff();
+  navigateToCreateWithHandoff(router, route.path, '/companies', RECRUITERS_DRAFT_KEY, 'companyId');
+}
+
+function persistDraftForHandoff() {
+  persistHandoffDraft(RECRUITERS_DRAFT_KEY, store.draft);
+}
+
+function restoreHandoffState() {
+  store.draft = restoreHandoffDraft(
+    route,
+    RECRUITERS_DRAFT_KEY,
+    store.draft,
+    (parsed, fallback) => ({
+      ...fallback,
+      ...parsed,
+      contacts: Array.isArray(parsed.contacts) ? parsed.contacts : fallback.contacts,
+    }),
+  );
+
+  const handoffResult = getHandoffResult(route);
+  if (handoffResult?.field === 'companyId') {
+    store.draft.companyId = handoffResult.id;
+  }
+
+  clearHandoffQuery(route, router);
+}
+
+function returnFromHandoff(recruitingFirmId: number | null) {
+  returnFromHandoffWithId(route, router, recruitingFirmId);
+}
+
+function filterIndustryOptions(val: string, update: (fn: () => void) => void, abort: () => void) {
+  if (!val) {
+    update(() => {
+      filteredIndustryOptions.value = [...industryOptions];
+    });
+    return;
+  }
+
+  const needle = val.trim().toLowerCase();
+  if (!needle) {
+    abort();
+    return;
+  }
+
+  update(() => {
+    filteredIndustryOptions.value = industryOptions.filter((option) =>
+      option.toLowerCase().includes(needle),
+    );
+  });
+}
+
+function getPrimaryContact(item: (typeof store.items)[number]) {
+  const contacts = Array.isArray(item.contacts) ? item.contacts : [];
+  return contacts[0] ?? null;
+}
+
+function formatPrimaryContact(item: (typeof store.items)[number]) {
+  const contact = getPrimaryContact(item);
+  if (!contact) {
+    return '';
+  }
+
+  return contact.title ? `${contact.name} (${contact.title})` : contact.name;
+}
+
+function displayPhone(item: (typeof store.items)[number]) {
+  return item.phone || getPrimaryContact(item)?.phone || '';
 }
 
 function relationshipColor(relationship: RecruiterRelationship) {
@@ -233,5 +470,10 @@ function clearDeepLinkQuery() {
   padding: 8px 10px;
   background: #f8faff;
   border-radius: 6px;
+}
+
+.warning-banner {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
 }
 </style>

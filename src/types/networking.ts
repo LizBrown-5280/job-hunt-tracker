@@ -24,6 +24,7 @@ export type CompanyRecord = {
   id: number;
   name: string;
   website: string;
+  companyLinkedinUrl: string;
   industry: string;
   size: CompanySizeRange;
   fundingStage: CompanyFundingStage;
@@ -57,12 +58,27 @@ export type PositionRecord = {
 
 export type RecruiterRelationship = 'New' | 'Active' | 'Dormant';
 
+export type RecruiterContact = {
+  name: string;
+  title: string;
+  phone: string;
+  email: string;
+  linkedinUrl: string;
+};
+
 export type RecruiterRecord = {
   id: number;
   fullName: string;
   companyId: number | null;
-  email: string;
-  linkedinUrl: string;
+  website: string;
+  industryFocus: string[];
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  companyLinkedinUrl: string;
+  contacts: RecruiterContact[];
   relationship: RecruiterRelationship;
   notes: string;
   createdAt: string;

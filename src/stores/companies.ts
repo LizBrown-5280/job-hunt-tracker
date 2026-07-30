@@ -120,6 +120,7 @@ function createDraft(): CompanyDraft {
   return {
     name: '',
     website: '',
+    companyLinkedinUrl: '',
     industry: '',
     size: '',
     fundingStage: '',
@@ -141,6 +142,8 @@ function normalizeCompanyRecord(item: LegacyCompanyRecord): CompanyRecord {
     id: typeof item.id === 'number' ? item.id : 0,
     name: typeof item.name === 'string' ? item.name : '',
     website: typeof item.website === 'string' ? item.website : '',
+    companyLinkedinUrl:
+      typeof item.companyLinkedinUrl === 'string' ? item.companyLinkedinUrl.trim() : '',
     industry: typeof item.industry === 'string' ? item.industry : '',
     size: toCompanySize(item.size),
     fundingStage: toFundingStage(item.fundingStage),
@@ -222,6 +225,7 @@ export const useCompaniesStore = defineStore('companies', {
           company.phone,
           company.notes,
           company.website,
+          company.companyLinkedinUrl,
         ]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(query)),
@@ -244,6 +248,7 @@ export const useCompaniesStore = defineStore('companies', {
       this.draft = {
         name: item.name,
         website: item.website,
+        companyLinkedinUrl: item.companyLinkedinUrl,
         industry: item.industry,
         size: item.size,
         fundingStage: item.fundingStage,
@@ -263,6 +268,7 @@ export const useCompaniesStore = defineStore('companies', {
       const payload = {
         name: this.draft.name.trim(),
         website: this.draft.website.trim(),
+        companyLinkedinUrl: this.draft.companyLinkedinUrl.trim(),
         industry: this.draft.industry.trim(),
         size: this.draft.size,
         fundingStage: this.draft.fundingStage,

@@ -25,6 +25,12 @@
               clearable
               class="q-mb-sm"
             />
+            <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
+              No companies yet. Create one to attach this position.
+              <template #action>
+                <q-btn flat color="primary" label="Create company" @click="openCompaniesPage" />
+              </template>
+            </q-banner>
             <q-select
               v-model="store.draft.status"
               :options="statusOptions"
@@ -180,6 +186,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
 import { useApplicationsStore } from '@/stores/applications';
+import {
+  clearHandoffQuery,
+  getHandoffResult,
+  navigateToCreateWithHandoff,
+  persistHandoffDraft,
+  restoreHandoffDraft,
+  returnFromHandoffWithId,
+} from '@/composables/navigationHandoff';
 import type { PositionStatus, PositionWorkMode } from '@/types/networking';
 
 const store = usePositionsStore();
@@ -192,6 +206,7 @@ const { filteredItems, editingId } = storeToRefs(store);
 const statusOptions: PositionStatus[] = ['Open', 'Interviewing', 'On Hold', 'Closed'];
 const filterOptions: Array<PositionStatus | 'All'> = ['All', ...statusOptions];
 const workModeOptions: PositionWorkMode[] = ['Remote', 'On-site', 'Hybrid'];
+const POSITIONS_DRAFT_KEY = 'job-hunt-tracker-handoff-positions-draft-v1';
 
 const companyOptions = computed(() =>
   companiesStore.items
@@ -209,6 +224,7 @@ const companyNameById = computed(() => {
     return acc;
   }, {});
 });
+const hasCompanies = computed(() => companyOptions.value.length > 0);
 
 const applicationCountByPositionId = computed(() => {
   return applicationsStore.items.reduce<Record<number, number>>((acc, item) => {
@@ -226,6 +242,8 @@ onMounted(async () => {
   companiesStore.init();
   await applicationsStore.init();
 
+  restoreHandoffState();
+
   const prefillQuery = getDeepLinkQuery();
   if (prefillQuery) {
     store.searchQuery = prefillQuery;
@@ -235,6 +253,7 @@ onMounted(async () => {
 
 async function submitPosition() {
   const currentEditingId = editingId.value;
+  const existingIds = new Set(store.items.map((item) => item.id));
   const nextTitle = store.draft.title.trim();
   const previousTitle =
     currentEditingId != null
@@ -242,10 +261,38 @@ async function submitPosition() {
       : '';
 
   store.save();
+  const savedPositionId =
+    currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
 
   if (currentEditingId != null && nextTitle && nextTitle !== previousTitle) {
     await applicationsStore.syncPositionTitleReferences(currentEditingId, nextTitle);
   }
+
+  returnFromHandoff(savedPositionId);
+}
+
+function openCompaniesPage() {
+  persistDraftForHandoff();
+  navigateToCreateWithHandoff(router, route.path, '/companies', POSITIONS_DRAFT_KEY, 'companyId');
+}
+
+function persistDraftForHandoff() {
+  persistHandoffDraft(POSITIONS_DRAFT_KEY, store.draft);
+}
+
+function restoreHandoffState() {
+  store.draft = restoreHandoffDraft(route, POSITIONS_DRAFT_KEY, store.draft);
+
+  const handoffResult = getHandoffResult(route);
+  if (handoffResult?.field === 'companyId') {
+    store.draft.companyId = handoffResult.id;
+  }
+
+  clearHandoffQuery(route, router);
+}
+
+function returnFromHandoff(positionId: number | null) {
+  returnFromHandoffWithId(route, router, positionId);
 }
 
 async function tryRemovePosition(positionId: number, positionTitle: string) {
@@ -403,5 +450,10 @@ function clearDeepLinkQuery() {
   padding: 8px 10px;
   background: #f8faff;
   border-radius: 6px;
+}
+
+.warning-banner {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
 }
 </style>

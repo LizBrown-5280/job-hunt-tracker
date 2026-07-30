@@ -55,18 +55,11 @@
                 dense
                 class="q-mb-sm"
               />
-            </section>
-
-            <section class="form-section-spacing">
-              <div class="text-subtitle2 q-mb-xs">Notes</div>
               <q-input
-                v-model="store.draft.notes"
-                type="textarea"
-                autogrow
+                v-model="store.draft.companyLinkedinUrl"
+                label="Company LinkedIn URL"
                 filled
-                placeholder="Add notes about the company"
-                maxlength="500"
-                counter
+                dense
                 class="q-mb-sm"
               />
             </section>
@@ -85,7 +78,7 @@
                 />
               </div>
               <div class="column q-gutter-sm q-mb-sm">
-                <q-card v-for="nameRow in store.draft.importantNames" :key="nameRow.rowId" bordered>
+                <q-card v-for="nameRow in store.draft.importantNames" :key="nameRow.rowId">
                   <q-card-section class="q-pa-sm">
                     <div class="row q-col-gutter-sm">
                       <div class="col-12 col-md-4">
@@ -137,6 +130,20 @@
                   </q-card-section>
                 </q-card>
               </div>
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Notes</div>
+              <q-input
+                v-model="store.draft.notes"
+                type="textarea"
+                autogrow
+                filled
+                placeholder="Add notes about the company"
+                maxlength="500"
+                counter
+                class="q-mb-sm"
+              />
             </section>
 
             <section class="form-section-spacing">
@@ -236,6 +243,9 @@
                     <div v-if="item.phone" class="text-caption text-grey-7">
                       {{ item.phone }}
                     </div>
+                    <div v-if="item.companyLinkedinUrl" class="text-caption text-primary q-mt-xs">
+                      {{ item.companyLinkedinUrl }}
+                    </div>
                     <div v-if="item.importantNames.length" class="text-caption text-grey-7 q-mt-xs">
                       {{ formatImportantNames(item) }}
                     </div>
@@ -317,17 +327,19 @@
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
 import { useRecruitersStore } from '@/stores/recruiters';
 import { useApplicationsStore } from '@/stores/applications';
+import { returnFromHandoffWithId } from '@/composables/navigationHandoff';
 
 const store = useCompaniesStore();
 const positionsStore = usePositionsStore();
 const recruitersStore = useRecruitersStore();
 const applicationsStore = useApplicationsStore();
 const $q = useQuasar();
+const route = useRoute();
 const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 
@@ -458,6 +470,7 @@ onMounted(async () => {
 
 async function submitCompany() {
   const currentEditingId = editingId.value;
+  const existingIds = new Set(store.items.map((item) => item.id));
   const nextName = store.draft.name.trim();
   const previousName =
     currentEditingId != null
@@ -465,10 +478,18 @@ async function submitCompany() {
       : '';
 
   store.save();
+  const savedCompanyId =
+    currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
 
   if (currentEditingId != null && nextName && nextName !== previousName) {
     await applicationsStore.syncCompanyNameReferences(currentEditingId, nextName);
   }
+
+  returnFromHandoff(savedCompanyId);
+}
+
+function returnFromHandoff(companyId: number | null) {
+  returnFromHandoffWithId(route, router, companyId);
 }
 
 async function tryRemoveCompany(companyId: number, companyName: string) {

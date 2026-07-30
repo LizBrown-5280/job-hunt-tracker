@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -113,32 +113,6 @@ async function assertSearchPrefill(page, fieldLabel, expectedValue) {
 async function run() {
   const devServer = spawnDevServer();
   const tempDir = await mkdtemp(path.join(tmpdir(), 'job-hunt-smoke-'));
-  const backupPath = path.join(tempDir, 'import-backup.json');
-
-  const backupPayload = {
-    version: 1,
-    exportedAt: '2026-07-29T16:00:00.000Z',
-    profile: { name: 'Backup Test' },
-    applications: [
-      {
-        id: 'app-import-1',
-        company: 'Nimbus Labs',
-        role: 'Frontend Engineer',
-        status: 'applied',
-        notes: 'Imported from smoke test',
-        nextAction: 'Schedule recruiter intro',
-        followUpDate: '2026-08-02',
-        isFavorite: true,
-        favoriteRating: 4,
-        previousFavoriteRating: 3,
-        favoriteUpdatedAt: '2026-07-29T16:00:00.000Z',
-        createdAt: '2026-07-20T12:00:00.000Z',
-        updatedAt: '2026-07-29T16:00:00.000Z',
-      },
-    ],
-  };
-
-  await writeFile(backupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
 
   const cleanUp = async () => {
     await stopProcess(devServer);
@@ -168,32 +142,121 @@ async function run() {
     const positionUpdated = `${positionInitial} Updated`;
     const recruiterInitial = `Smoke Recruiter ${runId}`;
     const recruiterUpdated = `${recruiterInitial} Updated`;
+    const nestedCompany = `Nested Company ${runId}`;
+    const nestedRecruiter = `Nested Recruiter ${runId}`;
+    const nestedRole = `Nested Role ${runId}`;
+    const nestedAction = `Nested action ${runId}`;
     const linkedAction = `Smoke linked action ${runId}`;
 
     await page.goto(DEV_URL, { waitUntil: 'networkidle' });
 
-    await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Export backup' }).click();
-    await page.getByText('Backup exported at', { exact: false }).waitFor({ timeout: 10000 });
+    await page.evaluate(async () => {
+      localStorage.removeItem('job-hunt-tracker-companies-v1');
+      localStorage.removeItem('job-hunt-tracker-positions-v1');
+      localStorage.removeItem('job-hunt-tracker-recruiters-v1');
+      localStorage.removeItem('job-hunt-tracker-profile-v1');
+      localStorage.removeItem('job-hunt-tracker-applications-backup-meta-v1');
+      sessionStorage.clear();
 
-    const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'Import backup' }).click();
-    const chooser = await fileChooserPromise;
-    await chooser.setFiles(backupPath);
+      const req = indexedDB.deleteDatabase('job-hunt-tracker');
+      await new Promise((resolve) => {
+        req.onsuccess = () => resolve(null);
+        req.onerror = () => resolve(null);
+        req.onblocked = () => resolve(null);
+      });
+    });
 
+    await page.reload({ waitUntil: 'networkidle' });
+
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await page.getByRole('textbox', { name: 'Company' }).fill(`Nested draft company ${runId}`);
+    await page.getByRole('textbox', { name: 'Role' }).fill(nestedRole);
+    await page.getByLabel('Next action').fill(nestedAction);
+    await page.getByRole('button', { name: 'Open recruiters' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}`), { timeout: 10000 });
+
+    await page.getByLabel('Recruiting firm name').fill(nestedRecruiter);
     await page
-      .getByText('Backup imported successfully.', { exact: false })
-      .waitFor({ timeout: 10000 });
-    await page.locator('text=Nimbus Labs').first().waitFor({ timeout: 10000 });
+      .getByPlaceholder('Add notes about the recruiting firm')
+      .fill(`Nested recruiter note ${runId}`);
+    await page.getByRole('button', { name: 'Create company' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/companies')}`), { timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Dev tools' }).click();
-    await page.getByRole('button', { name: 'Reset demo (keep profile)' }).click();
+    await page.getByLabel('Company name').fill(nestedCompany);
+    await page.getByRole('button', { name: 'Save company' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}`), { timeout: 10000 });
+
+    const hiringForCompanyValue = (
+      await page.getByLabel('Hiring for company (optional)').inputValue()
+    ).trim();
+    if (!hiringForCompanyValue.includes(nestedCompany)) {
+      throw new Error(
+        `Expected nested recruiter to link company "${nestedCompany}", received "${hiringForCompanyValue}".`,
+      );
+    }
+
+    await page.getByRole('button', { name: 'Save recruiting firm' }).click();
+    await page.waitForURL(new RegExp(`${escapeRegExp('/applications')}`), { timeout: 10000 });
+
+    const restoredCompany = (
+      await page.getByRole('textbox', { name: 'Company' }).inputValue()
+    ).trim();
+    if (restoredCompany !== nestedCompany) {
+      throw new Error(
+        `Expected nested unwind company to be "${nestedCompany}", received "${restoredCompany}".`,
+      );
+    }
+
+    const restoredRole = (await page.getByRole('textbox', { name: 'Role' }).inputValue()).trim();
+    if (restoredRole !== nestedRole) {
+      throw new Error(
+        `Expected nested unwind role to be "${nestedRole}", received "${restoredRole}".`,
+      );
+    }
+
+    const restoredAction = (await page.getByLabel('Next action').inputValue()).trim();
+    if (restoredAction !== nestedAction) {
+      throw new Error(
+        `Expected nested unwind next action to be "${nestedAction}", received "${restoredAction}".`,
+      );
+    }
+
+    const nestedRecruiterLinkedValue = (
+      await page.getByLabel('Linked recruiter').inputValue()
+    ).trim();
+    if (!nestedRecruiterLinkedValue.includes(nestedRecruiter)) {
+      throw new Error(
+        `Expected nested unwind linked recruiter to include "${nestedRecruiter}", received "${nestedRecruiterLinkedValue}".`,
+      );
+    }
+
+    await page.getByRole('button', { name: 'Save application' }).click();
+
+    const nestedActionText = page.getByText(`Next: ${nestedAction}`, { exact: true });
+    const nestedCard = nestedActionText.locator(
+      'xpath=ancestor::div[contains(@class,"q-card")][1]',
+    );
+    await nestedCard.waitFor({ timeout: 10000 });
+    await nestedCard
+      .getByText(`Company: ${nestedCompany}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+
+    await nestedCard.getByRole('button', { name: 'Delete' }).click();
+    await nestedActionText.waitFor({ state: 'detached', timeout: 10000 });
+
+    await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
+    let nestedRecruiterCard = getEntityCardByTitle(page, nestedRecruiter);
+    await nestedRecruiterCard.getByRole('button', { name: 'Delete' }).click();
     await page
-      .getByText('Demo data reset complete and profile preserved.', { exact: false })
-      .waitFor({ timeout: 10000 });
+      .getByText(nestedRecruiter, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Run core flow health check' }).click();
-    await page.getByText('Health check passed (', { exact: false }).waitFor({ timeout: 15000 });
+    await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
+    let nestedCompanyCard = getEntityCardByTitle(page, nestedCompany);
+    await nestedCompanyCard.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByText(nestedCompany, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByLabel('Company name').fill(companyInitial);
@@ -217,8 +280,8 @@ async function run() {
     companyCard = getEntityCardByTitle(page, companyUpdated);
     await companyCard.getByRole('button', { name: 'View recruiters' }).click();
     await page.waitForURL(new RegExp(`${escapeRegExp('/recruiters')}`), { timeout: 10000 });
-    await assertSearchPrefill(page, 'Search recruiters', companyUpdated);
-    await page.getByLabel('Search recruiters').fill('');
+    await assertSearchPrefill(page, 'Search recruiting firms', companyUpdated);
+    await page.getByLabel('Search recruiting firms').fill('');
 
     await page.goto(`${BASE_URL}companies?preview=dev`, { waitUntil: 'networkidle' });
     companyCard = getEntityCardByTitle(page, companyUpdated);
@@ -230,7 +293,6 @@ async function run() {
     await page.goto(`${BASE_URL}positions?preview=dev`, { waitUntil: 'networkidle' });
     await page.getByLabel('Position title').fill(positionInitial);
     await selectQOption(page, 'Company', companyUpdated);
-    await page.getByLabel('Location').fill('Remote');
     await page.getByRole('button', { name: 'Save position' }).click();
     await page.getByText(positionInitial, { exact: true }).waitFor({ timeout: 10000 });
 
@@ -327,14 +389,14 @@ async function run() {
       .waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
-    await page.getByLabel('Full name').fill(recruiterInitial);
-    await page.getByLabel('Email').fill(`smoke-${runId}@example.com`);
-    await page.getByRole('button', { name: 'Save recruiter' }).click();
+    await page.getByLabel('Recruiting firm name').fill(recruiterInitial);
+    await page.getByLabel('Website').fill(`https://smoke-${runId}.example.com`);
+    await page.getByRole('button', { name: 'Save recruiting firm' }).click();
     await page.getByText(recruiterInitial, { exact: true }).waitFor({ timeout: 10000 });
 
     let recruiterCard = getEntityCardByTitle(page, recruiterInitial);
     await recruiterCard.getByRole('button', { name: 'Edit' }).click();
-    await page.getByLabel('Full name').fill(recruiterUpdated);
+    await page.getByLabel('Recruiting firm name').fill(recruiterUpdated);
     await page.getByRole('button', { name: 'Save changes' }).click();
     await page.getByText(recruiterUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
@@ -370,7 +432,7 @@ async function run() {
     recruiterCard = getEntityCardByTitle(page, recruiterUpdated);
     const recruiterRenamed = `${recruiterUpdated} Renamed`;
     await recruiterCard.getByRole('button', { name: 'Edit' }).click();
-    await page.getByLabel('Full name').fill(recruiterRenamed);
+    await page.getByLabel('Recruiting firm name').fill(recruiterRenamed);
     await page.getByRole('button', { name: 'Save changes' }).click();
     await page.getByText(recruiterRenamed, { exact: true }).waitFor({ timeout: 10000 });
 

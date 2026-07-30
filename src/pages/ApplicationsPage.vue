@@ -386,6 +386,13 @@ import { useApplicationsStore } from '@/stores/applications';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
 import { useRecruitersStore } from '@/stores/recruiters';
+import {
+  clearHandoffQuery,
+  getHandoffResult,
+  navigateToCreateWithHandoff,
+  persistHandoffDraft,
+  restoreHandoffDraft,
+} from '@/composables/navigationHandoff';
 import type { ApplicationRecord } from '@/types/applications';
 
 const store = useApplicationsStore();
@@ -399,6 +406,7 @@ const { items, filteredItems, editingId } = storeToRefs(store);
 const statusOptions = ['Wishlist', 'Applied', 'Interview', 'Offer', 'Rejected', 'Ghosted'] as const;
 const priorityOptions = ['Low', 'Medium', 'High'] as const;
 const filterOptions = ['All', 'Favorites', ...statusOptions] as const;
+const APPLICATIONS_DRAFT_KEY = 'job-hunt-tracker-handoff-applications-draft-v1';
 const selectedFilterLabel = computed(() => {
   if (store.search.filter !== 'Favorites') {
     return store.search.filter;
@@ -525,6 +533,8 @@ onMounted(async () => {
   await store.init();
   await reconcileLinkedEntities();
 
+  restoreHandoffState();
+
   const deepLinkQuery = getDeepLinkQuery();
   if (deepLinkQuery) {
     store.search.query = deepLinkQuery;
@@ -624,15 +634,58 @@ function validateDraftLinks() {
 }
 
 function openCompaniesPage() {
-  void router.push('/companies');
+  persistDraftForHandoff();
+  navigateToCreateWithHandoff(
+    router,
+    route.path,
+    '/companies',
+    APPLICATIONS_DRAFT_KEY,
+    'companyId',
+  );
 }
 
 function openPositionsPage() {
-  void router.push('/positions');
+  persistDraftForHandoff();
+  navigateToCreateWithHandoff(
+    router,
+    route.path,
+    '/positions',
+    APPLICATIONS_DRAFT_KEY,
+    'positionId',
+  );
 }
 
 function openRecruitersPage() {
-  void router.push('/recruiters');
+  persistDraftForHandoff();
+  navigateToCreateWithHandoff(
+    router,
+    route.path,
+    '/recruiters',
+    APPLICATIONS_DRAFT_KEY,
+    'recruiterId',
+  );
+}
+
+function persistDraftForHandoff() {
+  persistHandoffDraft(APPLICATIONS_DRAFT_KEY, store.draft);
+}
+
+function restoreHandoffState() {
+  store.draft = restoreHandoffDraft(route, APPLICATIONS_DRAFT_KEY, store.draft);
+
+  const handoffResult = getHandoffResult(route);
+  if (handoffResult?.field === 'companyId') {
+    store.draft.companyId = handoffResult.id;
+    onCompanyLinkChange(handoffResult.id);
+  } else if (handoffResult?.field === 'positionId') {
+    store.draft.positionId = handoffResult.id;
+    onPositionLinkChange(handoffResult.id);
+  } else if (handoffResult?.field === 'recruiterId') {
+    store.draft.recruiterId = handoffResult.id;
+    onRecruiterLinkChange(handoffResult.id);
+  }
+
+  clearHandoffQuery(route, router);
 }
 
 function getDisplayCompany(item: ApplicationRecord) {
