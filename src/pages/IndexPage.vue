@@ -40,7 +40,7 @@
             @click="openApplication(focusApplication)"
           >
             <div class="text-subtitle2">
-              {{ focusApplication.role }} at {{ focusApplication.company }}
+              {{ getDisplayRole(focusApplication) }} at {{ getDisplayCompany(focusApplication) }}
             </div>
             <div class="text-caption text-grey-7 q-mt-xs">
               {{ focusApplication.nextAction || 'No next action yet' }}
@@ -90,7 +90,7 @@
               @dragend="clearDrag"
             >
               <div class="row items-center justify-between q-mb-xs">
-                <div class="text-subtitle2">{{ item.role }}</div>
+                <div class="text-subtitle2">{{ getDisplayRole(item) }}</div>
                 <div class="row items-center">
                   <q-chip
                     v-if="item.status === 'Offer'"
@@ -114,7 +114,7 @@
               </div>
               <div class="row items-start justify-between q-gutter-sm">
                 <div class="col">
-                  <div class="text-caption text-grey-7">{{ item.company }}</div>
+                  <div class="text-caption text-grey-7">{{ getDisplayCompany(item) }}</div>
                   <div class="text-caption q-mt-xs">
                     Next: {{ item.nextAction || 'No next action yet' }}
                   </div>
@@ -178,9 +178,13 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useApplicationsStore } from '@/stores/applications';
+import { useCompaniesStore } from '@/stores/companies';
+import { usePositionsStore } from '@/stores/positions';
 import type { ApplicationRecord, ApplicationStatus } from '@/types/applications';
 
 const store = useApplicationsStore();
+const companiesStore = useCompaniesStore();
+const positionsStore = usePositionsStore();
 const router = useRouter();
 const { items, profile } = storeToRefs(store);
 const draggedItem = ref<ApplicationRecord | null>(null);
@@ -198,6 +202,18 @@ const columns = [
   { title: 'Interview', status: 'Interview' as const },
   { title: 'Offer / Closed', status: 'Offer' as const },
 ] satisfies ReadonlyArray<{ title: string; status: ApplicationStatus }>;
+const companyNameById = computed(() =>
+  companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+    acc[company.id] = company.name;
+    return acc;
+  }, {}),
+);
+const positionTitleById = computed(() =>
+  positionsStore.items.reduce<Record<number, string>>((acc, position) => {
+    acc[position.id] = position.title;
+    return acc;
+  }, {}),
+);
 const groupedItems = computed<Record<ApplicationStatus, ApplicationRecord[]>>(() => {
   const groups: Record<ApplicationStatus, ApplicationRecord[]> = {
     Wishlist: [],
@@ -252,6 +268,8 @@ const focusApplication = computed(() => {
 });
 
 onMounted(() => {
+  companiesStore.init();
+  positionsStore.init();
   void store.init();
 });
 
@@ -259,7 +277,7 @@ function onDragStart(event: DragEvent, item: ApplicationRecord) {
   draggedItem.value = item;
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', item.role);
+    event.dataTransfer.setData('text/plain', getDisplayRole(item));
   }
 }
 
@@ -306,6 +324,22 @@ function openApplication(item: ApplicationRecord) {
 function goToApplications() {
   store.resetFilters();
   void router.push('/applications');
+}
+
+function getDisplayCompany(item: ApplicationRecord) {
+  if (item.companyId != null) {
+    return companyNameById.value[item.companyId] ?? item.company;
+  }
+
+  return item.company;
+}
+
+function getDisplayRole(item: ApplicationRecord) {
+  if (item.positionId != null) {
+    return positionTitleById.value[item.positionId] ?? item.role;
+  }
+
+  return item.role;
 }
 
 function formatTimestamp(value: string) {

@@ -247,7 +247,9 @@
               <q-card-section class="q-py-sm q-px-md">
                 <div class="row items-center justify-between">
                   <div>
-                    <div class="text-subtitle1">{{ item.role }} at {{ item.company }}</div>
+                    <div class="text-subtitle1">
+                      {{ getDisplayRole(item) }} at {{ getDisplayCompany(item) }}
+                    </div>
                     <div class="text-caption text-grey-7">Applied {{ item.appliedDate }}</div>
                     <div class="text-caption text-grey-6 q-mt-xs">
                       Updated {{ formatTimestamp(item.updatedAt || item.createdAt) }}
@@ -353,6 +355,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApplicationsStore } from '@/stores/applications';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
+import type { ApplicationRecord } from '@/types/applications';
 
 const store = useApplicationsStore();
 const companiesStore = useCompaniesStore();
@@ -542,6 +545,22 @@ function openCompaniesPage() {
 
 function openPositionsPage() {
   void router.push('/positions');
+}
+
+function getDisplayCompany(item: ApplicationRecord) {
+  if (item.companyId != null) {
+    return companyNameById.value[item.companyId] ?? item.company;
+  }
+
+  return item.company;
+}
+
+function getDisplayRole(item: ApplicationRecord) {
+  if (item.positionId != null) {
+    return positionTitleById.value[item.positionId] ?? item.role;
+  }
+
+  return item.role;
 }
 
 function getDeepLinkQuery() {

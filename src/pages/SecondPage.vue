@@ -57,8 +57,8 @@
           <q-card bordered flat class="q-pa-sm top-pick-item interactive-pick">
             <div class="row items-start justify-between q-mb-xs">
               <div>
-                <div class="text-subtitle2">{{ item.role }}</div>
-                <div class="text-caption text-grey-7">{{ item.company }}</div>
+                <div class="text-subtitle2">{{ getDisplayRole(item) }}</div>
+                <div class="text-caption text-grey-7">{{ getDisplayCompany(item) }}</div>
               </div>
               <q-chip dense color="primary" text-color="white">
                 {{ item.status }}
@@ -144,7 +144,9 @@
               class="decision-row"
             >
               <q-item-section>
-                <q-item-label>{{ item.role }} at {{ item.company }}</q-item-label>
+                <q-item-label
+                  >{{ getDisplayRole(item) }} at {{ getDisplayCompany(item) }}</q-item-label
+                >
                 <q-item-label caption>{{ getDecisionReason(item) }}</q-item-label>
               </q-item-section>
               <q-item-section side top>
@@ -176,7 +178,9 @@
               class="decision-row"
             >
               <q-item-section>
-                <q-item-label>{{ item.role }} at {{ item.company }}</q-item-label>
+                <q-item-label
+                  >{{ getDisplayRole(item) }} at {{ getDisplayCompany(item) }}</q-item-label
+                >
                 <q-item-label caption>{{ item.nextAction || 'No next action set' }}</q-item-label>
               </q-item-section>
               <q-item-section side top>
@@ -201,11 +205,27 @@ import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import { useApplicationsStore } from '@/stores/applications';
+import { useCompaniesStore } from '@/stores/companies';
+import { usePositionsStore } from '@/stores/positions';
 import type { ApplicationRecord } from '@/types/applications';
 
 const store = useApplicationsStore();
+const companiesStore = useCompaniesStore();
+const positionsStore = usePositionsStore();
 const router = useRouter();
 const { items } = storeToRefs(store);
+const companyNameById = computed(() =>
+  companiesStore.items.reduce<Record<number, string>>((acc, company) => {
+    acc[company.id] = company.name;
+    return acc;
+  }, {}),
+);
+const positionTitleById = computed(() =>
+  positionsStore.items.reduce<Record<number, string>>((acc, position) => {
+    acc[position.id] = position.title;
+    return acc;
+  }, {}),
+);
 
 const activeCount = computed(
   () =>
@@ -319,6 +339,8 @@ const decisionsThisWeek = computed(() => {
 });
 
 onMounted(() => {
+  companiesStore.init();
+  positionsStore.init();
   void store.init();
 });
 
@@ -329,6 +351,22 @@ function refreshData() {
 function openApplication(item: ApplicationRecord) {
   store.startEdit(item);
   void router.push('/applications');
+}
+
+function getDisplayCompany(item: ApplicationRecord) {
+  if (item.companyId != null) {
+    return companyNameById.value[item.companyId] ?? item.company;
+  }
+
+  return item.company;
+}
+
+function getDisplayRole(item: ApplicationRecord) {
+  if (item.positionId != null) {
+    return positionTitleById.value[item.positionId] ?? item.role;
+  }
+
+  return item.role;
 }
 
 function formatDate(value: string) {
