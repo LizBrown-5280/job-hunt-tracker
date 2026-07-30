@@ -32,41 +32,7 @@
               />
             </section>
 
-            <section class="form-section-spacing">
-              <div class="text-subtitle2 q-mb-xs">Company Headquarter Address and Phone</div>
-              <q-input
-                v-model="store.draft.street"
-                label="Street address"
-                filled
-                dense
-                class="q-mb-sm"
-              />
-              <div class="row q-col-gutter-sm">
-                <div class="col-12 col-md-6">
-                  <q-input v-model="store.draft.city" label="City" filled dense class="q-mb-sm" />
-                </div>
-                <div class="col-12 col-md-3">
-                  <q-input v-model="store.draft.state" label="State" filled dense class="q-mb-sm" />
-                </div>
-                <div class="col-12 col-md-3">
-                  <q-input v-model="store.draft.zip" label="ZIP" filled dense class="q-mb-sm" />
-                </div>
-              </div>
-              <q-input
-                v-model="store.draft.phone"
-                label="Phone number"
-                filled
-                dense
-                class="q-mb-sm"
-              />
-              <q-input
-                v-model="store.draft.companyLinkedinUrl"
-                label="Company LinkedIn URL"
-                filled
-                dense
-                class="q-mb-sm"
-              />
-            </section>
+            <AddressContactSection v-model="addressDraft" />
 
             <section class="form-section-spacing">
               <div class="row items-center q-mb-xs">
@@ -131,19 +97,11 @@
               </div>
             </section>
 
-            <section class="form-section-spacing">
-              <div class="text-subtitle2 q-mb-xs">Notes</div>
-              <q-input
-                v-model="store.draft.notes"
-                type="textarea"
-                autogrow
-                filled
-                placeholder="Add notes about the recruiting firm"
-                maxlength="500"
-                counter
-                class="q-mb-sm"
-              />
-            </section>
+            <NotesSection
+              v-model="store.draft.notes"
+              title="Notes"
+              placeholder="Add notes about the recruiting firm"
+            />
 
             <section class="form-section-spacing">
               <div class="text-subtitle2 q-mb-xs">Relationship</div>
@@ -346,6 +304,8 @@ import {
   restoreHandoffDraft,
   returnFromHandoffWithId,
 } from '@/composables/navigationHandoff';
+import AddressContactSection from '@/components/forms/AddressContactSection.vue';
+import NotesSection from '@/components/forms/NotesSection.vue';
 import type {
   PositionLinkHistoryEntry,
   RecruiterLinkHistoryEntry,
@@ -399,6 +359,25 @@ const companyNameById = computed(() => {
     acc[company.id] = company.name;
     return acc;
   }, {});
+});
+
+const addressDraft = computed({
+  get: () => ({
+    street: store.draft.street,
+    city: store.draft.city,
+    state: store.draft.state,
+    zip: store.draft.zip,
+    phone: store.draft.phone,
+    companyLinkedinUrl: store.draft.companyLinkedinUrl,
+  }),
+  set: (value) => {
+    store.draft.street = value.street;
+    store.draft.city = value.city;
+    store.draft.state = value.state;
+    store.draft.zip = value.zip;
+    store.draft.phone = value.phone;
+    store.draft.companyLinkedinUrl = value.companyLinkedinUrl;
+  },
 });
 const hasCompanies = computed(() => companyOptions.value.length > 0);
 
