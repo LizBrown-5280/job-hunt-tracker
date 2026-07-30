@@ -128,6 +128,8 @@
               type="textarea"
               filled
               autogrow
+              maxlength="500"
+              counter
               class="q-mb-sm"
             />
             <div class="text-caption text-grey-7 q-mb-sm form-hint">

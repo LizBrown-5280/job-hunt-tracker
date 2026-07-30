@@ -109,21 +109,21 @@
 
         <q-card-section class="q-pt-none">
           <div class="text-body2 q-mb-sm">Run maintenance and reliability checks.</div>
-          <div class="row q-gutter-sm q-mb-sm">
-            <q-btn color="primary" label="Reset demo data" @click="resetDemoData" />
-            <q-btn
-              color="secondary"
-              outline
-              label="Reset demo (keep profile)"
-              @click="resetDemoDataKeepProfile"
-            />
-          </div>
           <q-btn
             color="accent"
             icon="fact_check"
             label="Run core flow health check"
             :loading="isRunningHealthCheck"
             @click="runHealthCheck"
+          />
+          <q-btn
+            class="q-ml-sm"
+            color="negative"
+            outline
+            icon="delete_sweep"
+            label="Clear local data"
+            :loading="isClearingLocalData"
+            @click="confirmClearLocalData"
           />
           <q-banner
             v-if="devStatus"
@@ -157,6 +157,7 @@ const backupInput = ref<HTMLInputElement | null>(null);
 const backupStatus = ref<{ type: 'positive' | 'negative'; message: string } | null>(null);
 const devStatus = ref<{ type: 'positive' | 'negative'; message: string } | null>(null);
 const isRunningHealthCheck = ref(false);
+const isClearingLocalData = ref(false);
 const showDevToolsButton = computed(() => route.query.preview === 'dev');
 
 function toggleLeftDrawer() {
@@ -177,22 +178,6 @@ function openDevTools() {
 function saveProfile() {
   store.updateProfile(profileNameInput.value);
   showSettings.value = false;
-}
-
-async function resetDemoData() {
-  await store.resetDemoData();
-  devStatus.value = {
-    type: 'positive',
-    message: 'Demo data reset complete.',
-  };
-}
-
-async function resetDemoDataKeepProfile() {
-  await store.resetDemoDataKeepProfile();
-  devStatus.value = {
-    type: 'positive',
-    message: 'Demo data reset complete and profile preserved.',
-  };
 }
 
 async function runHealthCheck() {
@@ -216,6 +201,45 @@ async function runHealthCheck() {
     message: `Health check failed: ${result.error ?? 'Unknown error.'}`,
   };
   notifyUser('negative', 'Core flow health check failed.');
+}
+
+async function confirmClearLocalData() {
+  const confirmed = await new Promise<boolean>((resolve) => {
+    $q.dialog({
+      title: 'Clear local data',
+      message:
+        'This removes all locally stored companies, positions, recruiters, applications, profile data, and backups from this browser. Continue?',
+      ok: { label: 'Clear data', color: 'negative' },
+      cancel: { label: 'Cancel', flat: true },
+      persistent: true,
+    })
+      .onOk(() => resolve(true))
+      .onCancel(() => resolve(false))
+      .onDismiss(() => resolve(false));
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  isClearingLocalData.value = true;
+  try {
+    await store.clearLocalData();
+    devStatus.value = {
+      type: 'positive',
+      message: 'Local data cleared.',
+    };
+    notifyUser('positive', 'Local tracker data cleared.');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to clear local data.';
+    devStatus.value = {
+      type: 'negative',
+      message: `Clear failed: ${message}`,
+    };
+    notifyUser('negative', message);
+  } finally {
+    isClearingLocalData.value = false;
+  }
 }
 
 async function exportBackup() {

@@ -47,6 +47,8 @@
               autogrow
               filled
               label="Notes"
+              maxlength="500"
+              counter
               class="q-mb-sm"
             />
 

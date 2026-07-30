@@ -2,15 +2,43 @@ import { defineStore } from 'pinia';
 import type { PositionRecord } from '@/types/networking';
 
 type PositionDraft = Omit<PositionRecord, 'id' | 'createdAt' | 'updatedAt'>;
+type LegacyPositionRecord = Partial<PositionRecord> & {
+  location?: string;
+};
 
 const STORAGE_KEY = 'job-hunt-tracker-positions-v1';
+
+function isPositionRecord(value: unknown): value is PositionRecord {
+  return value !== null && typeof value === 'object' && 'street' in value && 'city' in value;
+}
+
+function normalizePositionRecord(item: LegacyPositionRecord): PositionRecord {
+  return {
+    id: typeof item.id === 'number' ? item.id : 0,
+    title: typeof item.title === 'string' ? item.title : '',
+    companyId: typeof item.companyId === 'number' ? item.companyId : null,
+    status:
+      item.status === 'Interviewing' || item.status === 'On Hold' || item.status === 'Closed'
+        ? item.status
+        : 'Open',
+    workMode:
+      item.workMode === 'Remote' || item.workMode === 'On-site' || item.workMode === 'Hybrid'
+        ? item.workMode
+        : 'On-site',
+    compensation: typeof item.compensation === 'string' ? item.compensation : '',
+    link: typeof item.link === 'string' ? item.link : '',
+    notes: typeof item.notes === 'string' ? item.notes : '',
+    createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+    updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
+  };
+}
 
 function createDraft(): PositionDraft {
   return {
     title: '',
     companyId: null,
     status: 'Open',
-    location: '',
+    workMode: 'On-site',
     compensation: '',
     link: '',
     notes: '',
@@ -28,12 +56,16 @@ function loadPositions(): PositionRecord[] {
   }
 
   try {
-    const parsed = JSON.parse(raw) as PositionRecord[];
+    const parsed = JSON.parse(raw) as unknown[];
     if (!Array.isArray(parsed)) {
       return [];
     }
 
-    return parsed;
+    return parsed.map((item) =>
+      isPositionRecord(item)
+        ? normalizePositionRecord(item)
+        : normalizePositionRecord(item as Record<string, unknown>),
+    );
   } catch {
     return [];
   }
@@ -75,7 +107,7 @@ export const usePositionsStore = defineStore('positions', {
 
         return [
           position.title,
-          position.location,
+          position.workMode,
           position.compensation,
           position.notes,
           position.link,
@@ -102,7 +134,7 @@ export const usePositionsStore = defineStore('positions', {
         title: item.title,
         companyId: item.companyId,
         status: item.status,
-        location: item.location,
+        workMode: item.workMode,
         compensation: item.compensation,
         link: item.link,
         notes: item.notes,
@@ -115,7 +147,7 @@ export const usePositionsStore = defineStore('positions', {
         title: this.draft.title.trim(),
         companyId: this.draft.companyId,
         status: this.draft.status,
-        location: this.draft.location.trim(),
+        workMode: this.draft.workMode,
         compensation: this.draft.compensation.trim(),
         link: this.draft.link.trim(),
         notes: this.draft.notes.trim(),

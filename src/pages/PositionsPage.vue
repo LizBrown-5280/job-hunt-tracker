@@ -33,7 +33,14 @@
               dense
               class="q-mb-sm"
             />
-            <q-input v-model="store.draft.location" label="Location" filled dense class="q-mb-sm" />
+            <q-select
+              v-model="store.draft.workMode"
+              :options="workModeOptions"
+              label="Work arrangement"
+              filled
+              dense
+              class="q-mb-sm"
+            />
             <q-input
               v-model="store.draft.compensation"
               label="Compensation"
@@ -48,6 +55,8 @@
               autogrow
               filled
               label="Notes"
+              maxlength="500"
+              counter
               class="q-mb-sm"
             />
 
@@ -106,7 +115,7 @@
                       {{ companyNameById[item.companyId ?? -1] ?? 'No company assigned' }}
                     </div>
                     <div class="text-caption text-grey-7">
-                      {{ item.location || 'No location set' }}
+                      {{ item.workMode }}
                     </div>
                     <div v-if="item.compensation" class="text-caption">{{ item.compensation }}</div>
                   </div>
@@ -171,7 +180,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
 import { useApplicationsStore } from '@/stores/applications';
-import type { PositionStatus } from '@/types/networking';
+import type { PositionStatus, PositionWorkMode } from '@/types/networking';
 
 const store = usePositionsStore();
 const companiesStore = useCompaniesStore();
@@ -182,6 +191,7 @@ const router = useRouter();
 const { filteredItems, editingId } = storeToRefs(store);
 const statusOptions: PositionStatus[] = ['Open', 'Interviewing', 'On Hold', 'Closed'];
 const filterOptions: Array<PositionStatus | 'All'> = ['All', ...statusOptions];
+const workModeOptions: PositionWorkMode[] = ['Remote', 'On-site', 'Hybrid'];
 
 const companyOptions = computed(() =>
   companiesStore.items
