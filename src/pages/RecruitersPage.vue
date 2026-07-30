@@ -187,8 +187,8 @@ onMounted(() => {
   }
 });
 
-function submitRecruiter() {
-  store.save();
+async function submitRecruiter() {
+  await store.save();
 }
 
 function relationshipColor(relationship: RecruiterRelationship) {

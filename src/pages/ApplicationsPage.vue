@@ -298,7 +298,12 @@
                     Position: {{ positionTitleById[item.positionId] ?? 'Unknown position' }}
                   </q-chip>
                   <q-chip v-if="item.recruiterId != null" size="sm" outline color="teal">
-                    Recruiter: {{ recruiterNameById[item.recruiterId] ?? 'Unknown recruiter' }}
+                    Recruiter:
+                    {{
+                      recruiterNameById[item.recruiterId] ??
+                      item.recruiterName ??
+                      'Unknown recruiter'
+                    }}
                   </q-chip>
                 </div>
                 <div v-if="item.nextAction" class="text-body2 q-mt-sm">

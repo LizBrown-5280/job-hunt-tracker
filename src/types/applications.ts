@@ -9,6 +9,7 @@ export interface ApplicationRecord {
   role: string;
   positionId?: number | null;
   recruiterId?: number | null;
+  recruiterName?: string;
   status: ApplicationStatus;
   appliedDate: string;
   nextAction: string;

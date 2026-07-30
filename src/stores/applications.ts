@@ -10,6 +10,7 @@ type DraftApplication = Pick<
   | 'role'
   | 'positionId'
   | 'recruiterId'
+  | 'recruiterName'
   | 'status'
   | 'appliedDate'
   | 'nextAction'
@@ -147,6 +148,7 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
     role: typeof input.role === 'string' ? input.role : '',
     positionId: typeof input.positionId === 'number' ? input.positionId : null,
     recruiterId: typeof input.recruiterId === 'number' ? input.recruiterId : null,
+    recruiterName: typeof input.recruiterName === 'string' ? input.recruiterName : '',
     status: toStatus(input.status),
     appliedDate:
       typeof input.appliedDate === 'string' && input.appliedDate
@@ -235,7 +237,7 @@ class ApplicationsDatabase extends Dexie {
     this.version(5)
       .stores({
         applications:
-          '++id, company, companyId, role, positionId, recruiterId, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
+          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
       })
       .upgrade(async (tx) => {
         await tx
@@ -243,6 +245,8 @@ class ApplicationsDatabase extends Dexie {
           .toCollection()
           .modify((record: Partial<ApplicationRecord>) => {
             record.recruiterId = typeof record.recruiterId === 'number' ? record.recruiterId : null;
+            record.recruiterName =
+              typeof record.recruiterName === 'string' ? record.recruiterName : '';
           });
       });
   }
@@ -602,6 +606,7 @@ const createDraft = (): DraftApplication => ({
   role: '',
   positionId: null,
   recruiterId: null,
+  recruiterName: '',
   status: 'Applied',
   appliedDate: new Date().toISOString().slice(0, 10),
   nextAction: '',
@@ -726,6 +731,7 @@ export const useApplicationsStore = defineStore('applications', {
         role: item.role,
         positionId: item.positionId ?? null,
         recruiterId: item.recruiterId ?? null,
+        recruiterName: item.recruiterName ?? '',
         status: item.status,
         appliedDate: item.appliedDate,
         nextAction: item.nextAction,
@@ -754,6 +760,8 @@ export const useApplicationsStore = defineStore('applications', {
       const nextRecruiterId = recruiterConflictsWithPosition
         ? null
         : (linkedRecruiter?.id ?? this.draft.recruiterId ?? null);
+      const nextRecruiterName =
+        linkedRecruiter?.fullName.trim() || this.draft.recruiterName?.trim() || '';
       const nextCompanyId =
         linkedPosition?.companyId != null
           ? linkedPosition.companyId
@@ -772,6 +780,7 @@ export const useApplicationsStore = defineStore('applications', {
         companyId: nextCompanyId,
         positionId: nextPositionId,
         recruiterId: nextRecruiterId,
+        recruiterName: nextRecruiterName,
         status: this.draft.status,
         priority: this.draft.priority ?? 'Medium',
         followUpDate: this.draft.followUpDate ?? '',
@@ -863,6 +872,7 @@ export const useApplicationsStore = defineStore('applications', {
         const currentCompanyId = item.companyId ?? null;
         const currentPositionId = item.positionId ?? null;
         const currentRecruiterId = item.recruiterId ?? null;
+        const currentRecruiterName = item.recruiterName ?? '';
         const nextCompanyId: number | null =
           currentCompanyId != null && !companyIds.has(currentCompanyId) ? null : currentCompanyId;
         const nextPositionId: number | null =
@@ -873,11 +883,13 @@ export const useApplicationsStore = defineStore('applications', {
           currentRecruiterId != null && !recruiterIds.has(currentRecruiterId)
             ? null
             : currentRecruiterId;
+        const nextRecruiterName = nextRecruiterId == null ? '' : currentRecruiterName;
 
         if (
           nextCompanyId === currentCompanyId &&
           nextPositionId === currentPositionId &&
-          nextRecruiterId === currentRecruiterId
+          nextRecruiterId === currentRecruiterId &&
+          nextRecruiterName === currentRecruiterName
         ) {
           return item;
         }
@@ -888,6 +900,7 @@ export const useApplicationsStore = defineStore('applications', {
           companyId: nextCompanyId,
           positionId: nextPositionId,
           recruiterId: nextRecruiterId,
+          recruiterName: nextRecruiterName,
           updatedAt: now,
         };
       });
@@ -906,6 +919,7 @@ export const useApplicationsStore = defineStore('applications', {
             companyId: item.companyId ?? null,
             positionId: item.positionId ?? null,
             recruiterId: item.recruiterId ?? null,
+            recruiterName: item.recruiterName ?? '',
             updatedAt: item.updatedAt,
           });
         }
@@ -1076,6 +1090,46 @@ export const useApplicationsStore = defineStore('applications', {
 
           await db.applications.update(item.id, {
             role: item.role,
+            updatedAt: item.updatedAt,
+          });
+        }
+      });
+    },
+
+    async syncRecruiterNameReferences(recruiterId: number, recruiterName: string) {
+      const normalizedName = recruiterName.trim();
+      if (!normalizedName) {
+        return;
+      }
+
+      const now = new Date().toISOString();
+      let changed = false;
+
+      this.items = this.items.map((item) => {
+        if (item.recruiterId !== recruiterId || item.recruiterName === normalizedName) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          recruiterName: normalizedName,
+          updatedAt: now,
+        };
+      });
+
+      if (!changed) {
+        return;
+      }
+
+      await db.transaction('rw', db.applications, async () => {
+        for (const item of this.items) {
+          if (item.id == null || item.recruiterId !== recruiterId) {
+            continue;
+          }
+
+          await db.applications.update(item.id, {
+            recruiterName: item.recruiterName ?? '',
             updatedAt: item.updatedAt,
           });
         }

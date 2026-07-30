@@ -366,14 +366,38 @@ async function run() {
     }
     await page.getByRole('button', { name: 'Cancel' }).click();
 
+    await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
+    recruiterCard = getEntityCardByTitle(page, recruiterUpdated);
+    const recruiterRenamed = `${recruiterUpdated} Renamed`;
+    await recruiterCard.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Full name').fill(recruiterRenamed);
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await page.getByText(recruiterRenamed, { exact: true }).waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await page
+      .getByText(`Recruiter: ${recruiterRenamed}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await recruiterLinkedActionText.waitFor({ timeout: 10000 });
+    await recruiterLinkedCard
+      .getByText(`Recruiter: ${recruiterRenamed}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+
     await recruiterLinkedCard.getByRole('button', { name: 'Delete' }).click();
     await recruiterLinkedActionText.waitFor({ state: 'detached', timeout: 10000 });
 
     await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
-    recruiterCard = getEntityCardByTitle(page, recruiterUpdated);
+    recruiterCard = getEntityCardByTitle(page, recruiterRenamed);
     await recruiterCard.getByRole('button', { name: 'Delete' }).click();
     await page
-      .getByText(recruiterUpdated, { exact: true })
+      .getByText(recruiterRenamed, { exact: true })
+      .waitFor({ state: 'detached', timeout: 10000 });
+
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await page
+      .getByText(`Recruiter: ${recruiterRenamed}`, { exact: true })
       .waitFor({ state: 'detached', timeout: 10000 });
 
     await browser.close();

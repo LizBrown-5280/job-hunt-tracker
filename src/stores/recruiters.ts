@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { RecruiterRecord } from '@/types/networking';
+import { useApplicationsStore } from '@/stores/applications';
 
 type RecruiterDraft = Omit<RecruiterRecord, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -103,7 +104,13 @@ export const useRecruitersStore = defineStore('recruiters', {
       };
     },
 
-    save() {
+    async save() {
+      const currentEditingId = this.editingId;
+      const previousName =
+        currentEditingId != null
+          ? (this.items.find((item) => item.id === currentEditingId)?.fullName.trim() ?? '')
+          : '';
+
       const now = new Date().toISOString();
       const payload = {
         fullName: this.draft.fullName.trim(),
@@ -124,6 +131,14 @@ export const useRecruitersStore = defineStore('recruiters', {
         );
         persistRecruiters(this.items);
         this.resetDraft();
+
+        if (currentEditingId != null && payload.fullName !== previousName) {
+          await useApplicationsStore().syncRecruiterNameReferences(
+            currentEditingId,
+            payload.fullName,
+          );
+        }
+
         return;
       }
 
