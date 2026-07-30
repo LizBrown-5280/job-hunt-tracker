@@ -8,6 +8,7 @@ export interface ApplicationRecord {
   companyId?: number | null;
   role: string;
   positionId?: number | null;
+  recruiterId?: number | null;
   status: ApplicationStatus;
   appliedDate: string;
   nextAction: string;

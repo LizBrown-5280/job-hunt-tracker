@@ -64,10 +64,20 @@ function stopProcess(child) {
 }
 
 async function selectQOption(page, fieldLabel, optionText) {
-  await page.getByLabel(fieldLabel).click();
-  const option = page.locator('.q-menu .q-item').filter({ hasText: optionText }).first();
-  await option.waitFor({ timeout: 10000 });
-  await option.click();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.getByLabel(fieldLabel).click();
+    const option = page.locator('.q-menu .q-item').filter({ hasText: optionText }).first();
+
+    try {
+      await option.waitFor({ timeout: 5000 });
+      await option.click();
+      return;
+    } catch {
+      // Retry once because Quasar menus can occasionally miss first render in CI-like environments.
+    }
+  }
+
+  throw new Error(`Unable to select option "${optionText}" for field "${fieldLabel}".`);
 }
 
 function escapeRegExp(value) {
@@ -328,6 +338,38 @@ async function run() {
     await page.getByRole('button', { name: 'Save changes' }).click();
     await page.getByText(recruiterUpdated, { exact: true }).waitFor({ timeout: 10000 });
 
+    await page.goto(`${BASE_URL}applications?preview=dev`, { waitUntil: 'networkidle' });
+    await page.getByRole('textbox', { name: 'Company' }).fill(companyUpdated);
+    await page.getByRole('textbox', { name: 'Role' }).fill(`Recruiter-linked role ${runId}`);
+    await selectQOption(page, 'Linked recruiter', recruiterUpdated);
+    const recruiterAction = `Recruiter linked action ${runId}`;
+    await page.getByLabel('Next action').fill(recruiterAction);
+    await page.getByRole('button', { name: 'Save application' }).click();
+
+    const recruiterLinkedActionText = page.getByText(`Next: ${recruiterAction}`, { exact: true });
+    const recruiterLinkedCard = recruiterLinkedActionText.locator(
+      'xpath=ancestor::div[contains(@class,"q-card")][1]',
+    );
+    await recruiterLinkedCard.waitFor({ timeout: 10000 });
+    await recruiterLinkedCard
+      .getByText(`Recruiter: ${recruiterUpdated}`, { exact: true })
+      .waitFor({ timeout: 10000 });
+
+    await recruiterLinkedCard.getByRole('button', { name: 'Edit' }).click();
+    const recruiterField = page.getByLabel('Linked recruiter');
+    await recruiterField.click();
+    const recruiterFieldValue = (await recruiterField.inputValue()).trim();
+    if (!recruiterFieldValue.includes(recruiterUpdated)) {
+      throw new Error(
+        `Expected linked recruiter input to include "${recruiterUpdated}", received "${recruiterFieldValue}".`,
+      );
+    }
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await recruiterLinkedCard.getByRole('button', { name: 'Delete' }).click();
+    await recruiterLinkedActionText.waitFor({ state: 'detached', timeout: 10000 });
+
+    await page.goto(`${BASE_URL}recruiters?preview=dev`, { waitUntil: 'networkidle' });
     recruiterCard = getEntityCardByTitle(page, recruiterUpdated);
     await recruiterCard.getByRole('button', { name: 'Delete' }).click();
     await page

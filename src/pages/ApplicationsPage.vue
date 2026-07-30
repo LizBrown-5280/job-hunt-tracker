@@ -64,6 +64,26 @@
               </template>
             </q-banner>
             <q-select
+              v-model="store.draft.recruiterId"
+              :options="recruiterOptions"
+              option-label="label"
+              option-value="value"
+              label="Linked recruiter"
+              filled
+              dense
+              emit-value
+              map-options
+              clearable
+              class="q-mb-sm"
+              @update:model-value="onRecruiterLinkChange"
+            />
+            <q-banner v-if="!hasRecruiters" dense rounded class="q-mb-sm warning-banner">
+              No recruiters match this company yet. Add one to keep outreach connected.
+              <template #action>
+                <q-btn flat color="primary" label="Open recruiters" @click="openRecruitersPage" />
+              </template>
+            </q-banner>
+            <q-select
               v-model="store.draft.status"
               :options="statusOptions"
               label="Status"
@@ -277,6 +297,9 @@
                   <q-chip v-if="item.positionId != null" size="sm" outline color="deep-orange">
                     Position: {{ positionTitleById[item.positionId] ?? 'Unknown position' }}
                   </q-chip>
+                  <q-chip v-if="item.recruiterId != null" size="sm" outline color="teal">
+                    Recruiter: {{ recruiterNameById[item.recruiterId] ?? 'Unknown recruiter' }}
+                  </q-chip>
                 </div>
                 <div v-if="item.nextAction" class="text-body2 q-mt-sm">
                   Next: {{ item.nextAction }}
@@ -355,11 +378,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApplicationsStore } from '@/stores/applications';
 import { useCompaniesStore } from '@/stores/companies';
 import { usePositionsStore } from '@/stores/positions';
+import { useRecruitersStore } from '@/stores/recruiters';
 import type { ApplicationRecord } from '@/types/applications';
 
 const store = useApplicationsStore();
 const companiesStore = useCompaniesStore();
 const positionsStore = usePositionsStore();
+const recruitersStore = useRecruitersStore();
 const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
@@ -386,7 +411,8 @@ const hasDraftContent = computed(
     Boolean(store.draft.nextAction.trim()) ||
     Boolean(store.draft.notes.trim()) ||
     store.draft.companyId != null ||
-    store.draft.positionId != null,
+    store.draft.positionId != null ||
+    store.draft.recruiterId != null,
 );
 
 const companyOptions = computed(() =>
@@ -420,9 +446,34 @@ const positionOptions = computed(() => {
 });
 const hasPositions = computed(() => positionOptions.value.length > 0);
 
+const recruiterOptions = computed(() => {
+  const base = recruitersStore.items.slice().sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+  const filtered =
+    store.draft.companyId != null
+      ? base.filter((item) => item.companyId === store.draft.companyId)
+      : base;
+
+  return filtered.map((recruiter) => ({
+    label:
+      recruiter.companyId != null && companyNameById.value[recruiter.companyId]
+        ? `${recruiter.fullName} (${companyNameById.value[recruiter.companyId]})`
+        : recruiter.fullName,
+    value: recruiter.id,
+  }));
+});
+const hasRecruiters = computed(() => recruiterOptions.value.length > 0);
+
 const positionTitleById = computed(() =>
   positionsStore.items.reduce<Record<number, string>>((acc, position) => {
     acc[position.id] = position.title;
+    return acc;
+  }, {}),
+);
+
+const recruiterNameById = computed(() =>
+  recruitersStore.items.reduce<Record<number, string>>((acc, recruiter) => {
+    acc[recruiter.id] = recruiter.fullName;
     return acc;
   }, {}),
 );
@@ -439,9 +490,11 @@ async function reconcileLinkedEntities() {
   try {
     companiesStore.init();
     positionsStore.init();
+    recruitersStore.init();
     await store.reconcileLinkedEntities(
       companiesStore.items.map((company) => company.id),
       positionsStore.items.map((position) => position.id),
+      recruitersStore.items.map((recruiter) => recruiter.id),
     );
   } finally {
     isReconcilingLinks = false;
@@ -527,6 +580,25 @@ function onPositionLinkChange(value: number | null) {
   }
 }
 
+function onRecruiterLinkChange(value: number | null) {
+  if (value == null) {
+    return;
+  }
+
+  const recruiter = recruitersStore.items.find((item) => item.id === value);
+  if (!recruiter) {
+    return;
+  }
+
+  if (recruiter.companyId != null) {
+    store.draft.companyId = recruiter.companyId;
+    const company = companiesStore.items.find((item) => item.id === recruiter.companyId);
+    if (company) {
+      store.draft.company = company.name;
+    }
+  }
+}
+
 function validateDraftLinks() {
   if (store.draft.companyId != null && !companyNameById.value[store.draft.companyId]) {
     store.draft.companyId = null;
@@ -537,6 +609,11 @@ function validateDraftLinks() {
     store.draft.positionId = null;
     $q.notify({ type: 'warning', message: 'Linked position was removed. Link cleared.' });
   }
+
+  if (store.draft.recruiterId != null && !recruiterNameById.value[store.draft.recruiterId]) {
+    store.draft.recruiterId = null;
+    $q.notify({ type: 'warning', message: 'Linked recruiter was removed. Link cleared.' });
+  }
 }
 
 function openCompaniesPage() {
@@ -545,6 +622,10 @@ function openCompaniesPage() {
 
 function openPositionsPage() {
   void router.push('/positions');
+}
+
+function openRecruitersPage() {
+  void router.push('/recruiters');
 }
 
 function getDisplayCompany(item: ApplicationRecord) {

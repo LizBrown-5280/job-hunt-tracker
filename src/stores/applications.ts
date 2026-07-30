@@ -9,6 +9,7 @@ type DraftApplication = Pick<
   | 'companyId'
   | 'role'
   | 'positionId'
+  | 'recruiterId'
   | 'status'
   | 'appliedDate'
   | 'nextAction'
@@ -145,6 +146,7 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
     companyId: typeof input.companyId === 'number' ? input.companyId : null,
     role: typeof input.role === 'string' ? input.role : '',
     positionId: typeof input.positionId === 'number' ? input.positionId : null,
+    recruiterId: typeof input.recruiterId === 'number' ? input.recruiterId : null,
     status: toStatus(input.status),
     appliedDate:
       typeof input.appliedDate === 'string' && input.appliedDate
@@ -228,6 +230,19 @@ class ApplicationsDatabase extends Dexie {
           .modify((record: Partial<ApplicationRecord>) => {
             record.companyId = typeof record.companyId === 'number' ? record.companyId : null;
             record.positionId = typeof record.positionId === 'number' ? record.positionId : null;
+          });
+      });
+    this.version(5)
+      .stores({
+        applications:
+          '++id, company, companyId, role, positionId, recruiterId, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('applications')
+          .toCollection()
+          .modify((record: Partial<ApplicationRecord>) => {
+            record.recruiterId = typeof record.recruiterId === 'number' ? record.recruiterId : null;
           });
       });
   }
@@ -519,6 +534,18 @@ function getStoredPositionById(positionId: number | null) {
   );
 }
 
+function getStoredRecruiterById(recruiterId: number | null) {
+  if (recruiterId == null) {
+    return null;
+  }
+
+  return (
+    loadStoredArray<RecruiterRecord>(RECRUITERS_STORAGE_KEY).find(
+      (item) => item.id === recruiterId,
+    ) ?? null
+  );
+}
+
 function isDeveloperModeEnabled() {
   if (typeof window === 'undefined') {
     return false;
@@ -574,6 +601,7 @@ const createDraft = (): DraftApplication => ({
   companyId: null,
   role: '',
   positionId: null,
+  recruiterId: null,
   status: 'Applied',
   appliedDate: new Date().toISOString().slice(0, 10),
   nextAction: '',
@@ -697,6 +725,7 @@ export const useApplicationsStore = defineStore('applications', {
         companyId: item.companyId ?? null,
         role: item.role,
         positionId: item.positionId ?? null,
+        recruiterId: item.recruiterId ?? null,
         status: item.status,
         appliedDate: item.appliedDate,
         nextAction: item.nextAction,
@@ -711,17 +740,28 @@ export const useApplicationsStore = defineStore('applications', {
       const now = new Date().toISOString();
       const linkedPosition = getStoredPositionById(this.draft.positionId ?? null);
       const linkedCompany = getStoredCompanyById(this.draft.companyId ?? null);
+      const linkedRecruiter = getStoredRecruiterById(this.draft.recruiterId ?? null);
       const linkedCompanyFromPosition =
         linkedPosition?.companyId != null ? getStoredCompanyById(linkedPosition.companyId) : null;
+      const linkedCompanyFromRecruiter =
+        linkedRecruiter?.companyId != null ? getStoredCompanyById(linkedRecruiter.companyId) : null;
+      const recruiterConflictsWithPosition =
+        linkedPosition?.companyId != null &&
+        linkedRecruiter?.companyId != null &&
+        linkedPosition.companyId !== linkedRecruiter.companyId;
 
       const nextPositionId = linkedPosition?.id ?? this.draft.positionId ?? null;
+      const nextRecruiterId = recruiterConflictsWithPosition
+        ? null
+        : (linkedRecruiter?.id ?? this.draft.recruiterId ?? null);
       const nextCompanyId =
         linkedPosition?.companyId != null
           ? linkedPosition.companyId
-          : (linkedCompany?.id ?? this.draft.companyId ?? null);
+          : (linkedRecruiter?.companyId ?? linkedCompany?.id ?? this.draft.companyId ?? null);
       const nextRole = linkedPosition?.title.trim() || this.draft.role.trim();
       const nextCompanyName =
         linkedCompanyFromPosition?.name.trim() ||
+        linkedCompanyFromRecruiter?.name.trim() ||
         linkedCompany?.name.trim() ||
         this.draft.company.trim();
 
@@ -731,6 +771,7 @@ export const useApplicationsStore = defineStore('applications', {
         role: nextRole,
         companyId: nextCompanyId,
         positionId: nextPositionId,
+        recruiterId: nextRecruiterId,
         status: this.draft.status,
         priority: this.draft.priority ?? 'Medium',
         followUpDate: this.draft.followUpDate ?? '',
@@ -807,23 +848,37 @@ export const useApplicationsStore = defineStore('applications', {
       persistProfile(this.profile);
     },
 
-    async reconcileLinkedEntities(validCompanyIds: number[], validPositionIds: number[]) {
+    async reconcileLinkedEntities(
+      validCompanyIds: number[],
+      validPositionIds: number[],
+      validRecruiterIds: number[],
+    ) {
       const companyIds = new Set(validCompanyIds);
       const positionIds = new Set(validPositionIds);
+      const recruiterIds = new Set(validRecruiterIds);
       const now = new Date().toISOString();
       let hasChanges = false;
 
       this.items = this.items.map((item) => {
         const currentCompanyId = item.companyId ?? null;
         const currentPositionId = item.positionId ?? null;
+        const currentRecruiterId = item.recruiterId ?? null;
         const nextCompanyId: number | null =
           currentCompanyId != null && !companyIds.has(currentCompanyId) ? null : currentCompanyId;
         const nextPositionId: number | null =
           currentPositionId != null && !positionIds.has(currentPositionId)
             ? null
             : currentPositionId;
+        const nextRecruiterId: number | null =
+          currentRecruiterId != null && !recruiterIds.has(currentRecruiterId)
+            ? null
+            : currentRecruiterId;
 
-        if (nextCompanyId === currentCompanyId && nextPositionId === currentPositionId) {
+        if (
+          nextCompanyId === currentCompanyId &&
+          nextPositionId === currentPositionId &&
+          nextRecruiterId === currentRecruiterId
+        ) {
           return item;
         }
 
@@ -832,6 +887,7 @@ export const useApplicationsStore = defineStore('applications', {
           ...item,
           companyId: nextCompanyId,
           positionId: nextPositionId,
+          recruiterId: nextRecruiterId,
           updatedAt: now,
         };
       });
@@ -849,6 +905,7 @@ export const useApplicationsStore = defineStore('applications', {
           await db.applications.update(item.id, {
             companyId: item.companyId ?? null,
             positionId: item.positionId ?? null,
+            recruiterId: item.recruiterId ?? null,
             updatedAt: item.updatedAt,
           });
         }
