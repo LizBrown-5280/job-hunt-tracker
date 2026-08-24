@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import Dexie from 'dexie';
+import { db } from '@/db/database';
 import type {
   ApplicationJourneyEvent,
   ApplicationRecord,
@@ -314,113 +314,6 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
 
   return normalized;
 }
-
-class ApplicationsDatabase extends Dexie {
-  applications!: Dexie.Table<ApplicationRecord, number>;
-
-  constructor() {
-    super('job-hunt-tracker');
-    this.version(2).stores({
-      applications:
-        '++id, company, role, status, appliedDate, nextAction, followUpDate, priority, createdAt, updatedAt',
-    });
-    this.version(3)
-      .stores({
-        applications:
-          '++id, company, role, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
-      })
-      .upgrade(async (tx) => {
-        await tx
-          .table('applications')
-          .toCollection()
-          .modify((record: Partial<ApplicationRecord>) => {
-            const now = new Date().toISOString();
-            const createdAt = toDateString(record.createdAt, now);
-
-            record.status = toStatus(record.status);
-            record.appliedDate =
-              typeof record.appliedDate === 'string' && record.appliedDate
-                ? record.appliedDate
-                : createdAt.slice(0, 10);
-            record.company = typeof record.company === 'string' ? record.company : '';
-            record.role = typeof record.role === 'string' ? record.role : '';
-            record.nextAction = typeof record.nextAction === 'string' ? record.nextAction : '';
-            record.notes = typeof record.notes === 'string' ? record.notes : '';
-            record.followUpDate =
-              typeof record.followUpDate === 'string' ? record.followUpDate : '';
-            record.favoriteRating =
-              typeof record.favoriteRating === 'number' ? record.favoriteRating : 0;
-            record.createdAt = createdAt;
-            record.updatedAt = toDateString(record.updatedAt, createdAt);
-          });
-      });
-    this.version(4)
-      .stores({
-        applications:
-          '++id, company, companyId, role, positionId, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
-      })
-      .upgrade(async (tx) => {
-        await tx
-          .table('applications')
-          .toCollection()
-          .modify((record: Partial<ApplicationRecord>) => {
-            record.companyId = typeof record.companyId === 'number' ? record.companyId : null;
-            record.positionId = typeof record.positionId === 'number' ? record.positionId : null;
-          });
-      });
-    this.version(5)
-      .stores({
-        applications:
-          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, createdAt, updatedAt',
-      })
-      .upgrade(async (tx) => {
-        await tx
-          .table('applications')
-          .toCollection()
-          .modify((record: Partial<ApplicationRecord>) => {
-            record.recruiterId = typeof record.recruiterId === 'number' ? record.recruiterId : null;
-            record.recruiterName =
-              typeof record.recruiterName === 'string' ? record.recruiterName : '';
-          });
-      });
-    this.version(6)
-      .stores({
-        applications:
-          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, archivedAt, createdAt, updatedAt',
-      })
-      .upgrade(async (tx) => {
-        await tx
-          .table('applications')
-          .toCollection()
-          .modify((record: Partial<ApplicationRecord>) => {
-            record.archivedAt = typeof record.archivedAt === 'string' ? record.archivedAt : null;
-          });
-      });
-    this.version(7)
-      .stores({
-        applications:
-          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, archivedAt, createdAt, updatedAt',
-      })
-      .upgrade(async (tx) => {
-        await tx
-          .table('applications')
-          .toCollection()
-          .modify((record: Partial<ApplicationRecord>) => {
-            const createdAt = toDateString(record.createdAt, new Date().toISOString());
-            const fallbackStatus = toStatus(record.status);
-            const fallbackAppliedDate = toIsoDate(record.appliedDate, '');
-            record.journeyEvents = normalizeJourneyEvents(
-              record.journeyEvents,
-              fallbackStatus,
-              fallbackAppliedDate,
-              createdAt,
-            );
-          });
-      });
-  }
-}
-
-const db = new ApplicationsDatabase();
 
 function loadStoredArray<T>(key: string): T[] {
   if (typeof window === 'undefined') {
