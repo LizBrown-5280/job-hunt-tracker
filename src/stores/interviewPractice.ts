@@ -82,19 +82,23 @@ export const useInterviewPracticeStore = defineStore('interviewPractice', {
       this.error = null;
 
       try {
-        const existingSystemCategory = await db.interviewQuestionCategories
-          .where('id')
-          .equals(SYSTEM_CATEGORY_IDS.general)
-          .first();
+        const systemCategoryIds = Object.values(SYSTEM_CATEGORY_IDS);
+        const existingSystemCategories =
+          await db.interviewQuestionCategories.bulkGet(systemCategoryIds);
 
-        if (!existingSystemCategory) {
+        if (existingSystemCategories.some((category) => !category)) {
           await db.transaction(
             'rw',
             db.interviewQuestionCategories,
             db.interviewQuestions,
             async () => {
-              await db.interviewQuestionCategories.bulkAdd(systemInterviewQuestionPack.categories);
-              await db.interviewQuestions.bulkAdd(systemInterviewQuestionPack.questions);
+              for (const category of systemInterviewQuestionPack.categories) {
+                await db.interviewQuestionCategories.put(category);
+              }
+
+              for (const question of systemInterviewQuestionPack.questions) {
+                await db.interviewQuestions.put(question);
+              }
             },
           );
         }
