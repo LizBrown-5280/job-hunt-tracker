@@ -43,6 +43,10 @@
           <q-item-section avatar><q-icon name="insights" /></q-item-section>
           <q-item-section>Insights</q-item-section>
         </q-item>
+        <q-item clickable to="/training" class="nav-item">
+          <q-item-section avatar><q-icon name="school" /></q-item-section>
+          <q-item-section>Training</q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
 

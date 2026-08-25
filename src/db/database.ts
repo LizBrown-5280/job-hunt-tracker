@@ -4,7 +4,12 @@ import type {
   ApplicationRecord,
   ApplicationStatus,
 } from '@/types/applications';
-import type { InterviewQuestion, InterviewQuestionCategory } from '@/types/interviewPractice';
+import type {
+  InterviewPracticeSessionRecord,
+  InterviewQuestion,
+  InterviewQuestionCategory,
+  InterviewResponseRecord,
+} from '@/types/interviewPractice';
 
 function toDateString(value: unknown, fallback: string) {
   if (typeof value !== 'string') {
@@ -121,6 +126,8 @@ export class JobHuntDatabase extends Dexie {
   applications!: Table<ApplicationRecord, number>;
   interviewQuestionCategories!: Table<InterviewQuestionCategory, string>;
   interviewQuestions!: Table<InterviewQuestion, string>;
+  interviewPracticeSessions!: Table<InterviewPracticeSessionRecord, string>;
+  interviewResponses!: Table<InterviewResponseRecord, string>;
 
   constructor() {
     super('job-hunt-tracker');
@@ -227,6 +234,43 @@ export class JobHuntDatabase extends Dexie {
       interviewQuestionCategories: 'id, parentCategoryId, source, archivedAt, createdAt',
       interviewQuestions: 'id, categoryId, difficulty, source, archivedAt, createdAt, updatedAt',
     });
+    this.version(9).stores({
+      applications:
+        '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, archivedAt, createdAt, updatedAt',
+      interviewQuestionCategories: 'id, parentCategoryId, source, archivedAt, createdAt',
+      interviewQuestions: 'id, categoryId, difficulty, source, archivedAt, createdAt, updatedAt',
+      interviewPracticeSessions: 'id, categoryId, startedAt, finishedAt, createdAt, updatedAt',
+      interviewResponses: 'id, sessionId, questionId, updatedAt, [sessionId+questionId]',
+    });
+    this.version(10)
+      .stores({
+        applications:
+          '++id, company, companyId, role, positionId, recruiterId, recruiterName, status, appliedDate, nextAction, followUpDate, priority, favoriteRating, previousFavoriteRating, favoriteUpdatedAt, archivedAt, createdAt, updatedAt',
+        interviewQuestionCategories: 'id, parentCategoryId, source, archivedAt, createdAt',
+        interviewQuestions: 'id, categoryId, difficulty, source, archivedAt, createdAt, updatedAt',
+        interviewPracticeSessions: 'id, categoryId, startedAt, finishedAt, createdAt, updatedAt',
+        interviewResponses: 'id, sessionId, questionId, updatedAt, [sessionId+questionId]',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('interviewPracticeSessions')
+          .toCollection()
+          .modify((record: Partial<InterviewPracticeSessionRecord>) => {
+            record.reflectionNote =
+              typeof record.reflectionNote === 'string' ? record.reflectionNote : '';
+          });
+
+        await tx
+          .table('interviewResponses')
+          .toCollection()
+          .modify((record: Partial<InterviewResponseRecord>) => {
+            record.rating = typeof record.rating === 'number' ? record.rating : null;
+            record.reviewTag =
+              record.reviewTag === 'favorite' || record.reviewTag === 'needs-work'
+                ? record.reviewTag
+                : null;
+          });
+      });
   }
 }
 

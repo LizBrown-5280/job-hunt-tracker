@@ -1,5 +1,6 @@
 export type InterviewContentSource = 'system' | 'user' | 'imported';
 export type InterviewQuestionDifficulty = 'Easy' | 'Medium' | 'Hard';
+export type InterviewResponseReviewTag = 'favorite' | 'needs-work' | null;
 
 export interface InterviewQuestionCategory {
   id: string;
@@ -29,6 +30,29 @@ export interface InterviewQuestionPack {
   version: 1;
   categories: InterviewQuestionCategory[];
   questions: InterviewQuestion[];
+}
+
+export interface InterviewPracticeSessionRecord {
+  id: string;
+  categoryId: string | null;
+  questionIds: string[];
+  currentStep: number;
+  reflectionNote: string;
+  startedAt: string;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InterviewResponseRecord {
+  id: string;
+  sessionId: string;
+  questionId: string;
+  responseText: string;
+  rating: number | null;
+  reviewTag: InterviewResponseReviewTag;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type InterviewQuestionInput = Omit<
