@@ -1,91 +1,8 @@
 import { defineStore } from 'pinia';
-import type { PositionLinkHistoryEntry, PositionRecord } from '@/types/networking';
+import { db } from '@/db/database';
+import type { PositionRecord } from '@/types/networking';
 
 type PositionDraft = Omit<PositionRecord, 'id' | 'createdAt' | 'updatedAt' | 'linkHistory'>;
-type LegacyPositionRecord = Partial<PositionRecord> & {
-  location?: string;
-};
-
-const STORAGE_KEY = 'job-hunt-tracker-positions-v1';
-
-function isPositionRecord(value: unknown): value is PositionRecord {
-  return value !== null && typeof value === 'object' && 'street' in value && 'city' in value;
-}
-
-function normalizeLinkHistory(
-  value: unknown,
-  fallbackCreatedAt: string,
-  companyId: number | null,
-  recruiterId: number | null,
-): PositionLinkHistoryEntry[] {
-  if (!Array.isArray(value)) {
-    return [
-      {
-        changedAt: fallbackCreatedAt,
-        companyId,
-        recruiterId,
-        reason: 'initial',
-      },
-    ];
-  }
-
-  const normalized = value
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return null;
-      }
-
-      const entry = item as Partial<PositionLinkHistoryEntry>;
-      return {
-        changedAt: typeof entry.changedAt === 'string' ? entry.changedAt : fallbackCreatedAt,
-        companyId: typeof entry.companyId === 'number' ? entry.companyId : null,
-        recruiterId: typeof entry.recruiterId === 'number' ? entry.recruiterId : null,
-        reason: typeof entry.reason === 'string' && entry.reason ? entry.reason : 'updated',
-      };
-    })
-    .filter((entry): entry is PositionLinkHistoryEntry => entry !== null);
-
-  if (normalized.length > 0) {
-    return normalized;
-  }
-
-  return [
-    {
-      changedAt: fallbackCreatedAt,
-      companyId,
-      recruiterId,
-      reason: 'initial',
-    },
-  ];
-}
-
-function normalizePositionRecord(item: LegacyPositionRecord): PositionRecord {
-  const createdAt = typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString();
-  const companyId = typeof item.companyId === 'number' ? item.companyId : null;
-  const recruiterId = typeof item.recruiterId === 'number' ? item.recruiterId : null;
-
-  return {
-    id: typeof item.id === 'number' ? item.id : 0,
-    title: typeof item.title === 'string' ? item.title : '',
-    companyId,
-    recruiterId,
-    linkHistory: normalizeLinkHistory(item.linkHistory, createdAt, companyId, recruiterId),
-    status:
-      item.status === 'Interviewing' || item.status === 'On Hold' || item.status === 'Closed'
-        ? item.status
-        : 'Open',
-    workMode:
-      item.workMode === 'Remote' || item.workMode === 'On-site' || item.workMode === 'Hybrid'
-        ? item.workMode
-        : 'On-site',
-    compensation: typeof item.compensation === 'string' ? item.compensation : '',
-    link: typeof item.link === 'string' ? item.link : '',
-    notes: typeof item.notes === 'string' ? item.notes : '',
-    archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : null,
-    createdAt,
-    updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
-  };
-}
 
 function createDraft(): PositionDraft {
   return {
@@ -100,38 +17,15 @@ function createDraft(): PositionDraft {
   };
 }
 
-function loadPositions(): PositionRecord[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.map((item) =>
-      isPositionRecord(item)
-        ? normalizePositionRecord(item)
-        : normalizePositionRecord(item as Record<string, unknown>),
-    );
-  } catch {
-    return [];
-  }
+async function loadPositions(): Promise<PositionRecord[]> {
+  return db.positions.toArray();
 }
 
-function persistPositions(items: PositionRecord[]) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+async function persistPositions(items: PositionRecord[]) {
+  await db.transaction('rw', db.positions, async () => {
+    await db.positions.clear();
+    await db.positions.bulkPut(items);
+  });
 }
 
 export const usePositionsStore = defineStore('positions', {
@@ -189,8 +83,8 @@ export const usePositionsStore = defineStore('positions', {
   },
 
   actions: {
-    init() {
-      this.items = loadPositions();
+    async init() {
+      this.items = await loadPositions();
     },
 
     resetDraft() {
@@ -212,7 +106,7 @@ export const usePositionsStore = defineStore('positions', {
       };
     },
 
-    save() {
+    async save() {
       const now = new Date().toISOString();
       const payload = {
         title: this.draft.title.trim(),
@@ -251,7 +145,7 @@ export const usePositionsStore = defineStore('positions', {
               }
             : item,
         );
-        persistPositions(this.items);
+        await persistPositions(this.items);
         this.resetDraft();
         return;
       }
@@ -273,31 +167,31 @@ export const usePositionsStore = defineStore('positions', {
         updatedAt: now,
       });
 
-      persistPositions(this.items);
+      await persistPositions(this.items);
       this.resetDraft();
     },
 
-    remove(id: number) {
+    async remove(id: number) {
       const now = new Date().toISOString();
       this.items = this.items.map((item) =>
         item.id === id ? { ...item, archivedAt: now, updatedAt: now } : item,
       );
-      persistPositions(this.items);
+      await persistPositions(this.items);
 
       if (this.editingId === id) {
         this.resetDraft();
       }
     },
 
-    restore(id: number) {
+    async restore(id: number) {
       const now = new Date().toISOString();
       this.items = this.items.map((item) =>
         item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
       );
-      persistPositions(this.items);
+      await persistPositions(this.items);
     },
 
-    reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
+    async reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
       const now = new Date().toISOString();
       let changed = false;
 
@@ -324,7 +218,7 @@ export const usePositionsStore = defineStore('positions', {
       });
 
       if (changed) {
-        persistPositions(this.items);
+        await persistPositions(this.items);
       }
     },
   },

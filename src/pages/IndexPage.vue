@@ -271,10 +271,10 @@ const focusApplication = computed(() => {
   })[0];
 });
 
-onMounted(() => {
-  companiesStore.init();
-  positionsStore.init();
-  void store.init();
+onMounted(async () => {
+  await companiesStore.init();
+  await positionsStore.init();
+  await store.init();
 });
 
 function onDragStart(event: DragEvent, item: ApplicationRecord) {

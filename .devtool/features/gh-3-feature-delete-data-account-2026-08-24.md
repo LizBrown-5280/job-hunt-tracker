@@ -6,31 +6,39 @@ assignee: null
 epic: 'foundation-architecture-epic-2026-08-24'
 dueDate: null
 created: '2026-08-24T17:30:00.000Z'
-modified: '2026-08-24T17:30:00.000Z'
+modified: '2026-08-28T11:15:00.000Z'
 completedAt: null
-labels: ['feature', 'account', 'data-privacy']
+labels: ['feature', 'data-privacy']
 order: 'aF'
 ---
 
-# Feature: Delete Data / Account
+# Feature: Manage and Delete Local Data
 
-Implement full account and data deletion functionality with proper safeguards.
+Add a user-facing data management area to Settings so users can selectively delete local tracker data or clear all local data.
 
 ## Acceptance Criteria
 
-- [ ] Build "Delete Account" section in settings or account page
-- [ ] Show warning: cannot be undone, all data will be permanently removed
-- [ ] Require confirmation via checkbox + password or similar verification
-- [ ] Add optional export data before deletion
-- [ ] Delete all user data from IndexedDB
-- [ ] Clear localStorage
-- [ ] Sign out user after deletion
-- [ ] Verify data is unrecoverable
-- [ ] Log deletion event (if applicable)
+- [ ] Add a **Data Management** or **Danger Zone** section to the existing Settings dialog
+- [ ] List selectable data groups: Applications, Positions, Companies, Recruiters, Interview Practice, Interview Question Bank, and Profile/Settings
+- [ ] Provide a Select All control and a Clear Selected Data action
+- [ ] Require explicit confirmation before deleting selected data
+- [ ] Show a stronger, clearly worded confirmation for clearing all data
+- [ ] Keep Export Backup available before deletion
+- [ ] Remove company, position, and recruiter records from their corresponding Dexie tables when selected
+- [ ] Remove profile and backup metadata from their localStorage keys when selected
+- [ ] Remove application and interview groups from their corresponding Dexie tables when selected
+- [ ] Preserve unselected data when a partial deletion is performed
+- [ ] Reset affected in-memory Pinia stores after deletion
+- [ ] Verify selected data is unrecoverable while unselected data remains available
+- [ ] Add focused tests for selective deletion and clear-all behavior
 
 ## Notes
 
+The app stores companies, positions, recruiters, applications, and interview-practice records in Dexie/IndexedDB. Profile data and backup metadata remain in localStorage as lightweight settings.
+
+The existing developer-only `Clear local data` action is a starting point for the clear-all operation, but this feature should move the capability into Settings and add per-data-group selection.
+
+Authentication, password verification, sign-out, server-side account deletion, and deletion event logging are deferred until an account backend exists.
+
 **GitHub Issue:** #3
 **Label:** feature
-
-Critical for user privacy and GDPR compliance. Must be irreversible and thoroughly tested.

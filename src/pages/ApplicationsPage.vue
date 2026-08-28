@@ -707,9 +707,7 @@ const positionOptions = computed(() => {
 const hasPositions = computed(() => positionOptions.value.length > 0);
 
 const recruiterOptions = computed(() => {
-  const base = recruitersStore.activeItems
-    .slice()
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const base = recruitersStore.activeItems.slice().sort((a, b) => a.name.localeCompare(b.name));
   const selectedCompanyId = store.draft.companyId;
 
   const filtered =
@@ -727,8 +725,8 @@ const recruiterOptions = computed(() => {
   return filtered.map((recruiter) => ({
     label:
       recruiter.companyId != null && companyNameById.value[recruiter.companyId]
-        ? `${recruiter.fullName} (${companyNameById.value[recruiter.companyId]})`
-        : recruiter.fullName,
+        ? `${recruiter.name} (${companyNameById.value[recruiter.companyId]})`
+        : recruiter.name,
     value: recruiter.id,
   }));
 });
@@ -743,7 +741,7 @@ const positionTitleById = computed(() =>
 
 const recruiterNameById = computed(() =>
   recruitersStore.activeItems.reduce<Record<number, string>>((acc, recruiter) => {
-    acc[recruiter.id] = recruiter.fullName;
+    acc[recruiter.id] = recruiter.name;
     return acc;
   }, {}),
 );
@@ -758,9 +756,9 @@ async function reconcileLinkedEntities() {
   isReconcilingLinks = true;
 
   try {
-    companiesStore.init();
-    positionsStore.init();
-    recruitersStore.init();
+    await companiesStore.init();
+    await positionsStore.init();
+    await recruitersStore.init();
     await store.reconcileLinkedEntities(
       companiesStore.activeItems.map((company) => company.id),
       positionsStore.activeItems.map((position) => position.id),

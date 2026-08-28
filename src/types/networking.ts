@@ -85,7 +85,7 @@ export type RecruiterLinkHistoryEntry = {
 
 export type RecruiterRecord = {
   id: number;
-  fullName: string;
+  name: string;
   companyId: number | null;
   companyIds: number[];
   website: string;

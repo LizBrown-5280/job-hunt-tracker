@@ -7,30 +7,13 @@
             {{ editingId ? 'Edit recruiting firm' : 'Add recruiting firm' }}
           </div>
           <q-form @submit.prevent="submitRecruiter">
-            <section>
-              <q-input
-                v-model="store.draft.fullName"
-                label="Recruiting firm name"
-                filled
-                dense
-                class="q-mb-sm"
-              />
-              <q-input v-model="store.draft.website" label="Website" filled dense class="q-mb-sm" />
-              <q-select
-                v-model="store.draft.industryFocus"
-                :options="filteredIndustryOptions"
-                label="Industry focus"
-                filled
-                dense
-                clearable
-                use-input
-                input-debounce="0"
-                multiple
-                use-chips
-                @filter="filterIndustryOptions"
-                class="q-mb-sm"
-              />
-            </section>
+            <OrganizationDetailsSection
+              v-model="organizationDetailsDraft"
+              name-label="Recruiting firm name"
+              industry-label="Industry focus"
+              industry-mode="multiple"
+              :industry-options="industryOptions"
+            />
 
             <AddressContactSection v-model="addressDraft" />
 
@@ -243,7 +226,7 @@
               <q-card-section class="q-py-sm q-px-md">
                 <div class="row items-start justify-between">
                   <div>
-                    <div class="text-subtitle1">{{ item.fullName }}</div>
+                    <div class="text-subtitle1">{{ item.name }}</div>
                     <div v-if="getHiringCompaniesLabel(item)" class="text-caption text-grey-7">
                       Hiring for: {{ getHiringCompaniesLabel(item) }}
                     </div>
@@ -340,6 +323,7 @@ import {
   returnFromHandoffWithId,
 } from '@/composables/navigationHandoff';
 import AddressContactSection from '@/components/forms/AddressContactSection.vue';
+import OrganizationDetailsSection from '@/components/forms/OrganizationDetailsSection.vue';
 import NotesSection from '@/components/forms/NotesSection.vue';
 import type {
   PositionLinkHistoryEntry,
@@ -378,7 +362,6 @@ const industryOptions = [
   'Arts, Media & Entertainment',
   'Other',
 ];
-const filteredIndustryOptions = ref([...industryOptions]);
 const companyRelationshipRows = ref<Array<{ rowId: number; companyId: number | null }>>([]);
 const pendingCompanyRowId = ref<number | null>(null);
 
@@ -399,6 +382,21 @@ const companyNameById = computed(() => {
   }, {});
 });
 
+const organizationDetailsDraft = computed({
+  get: () => ({
+    name: store.draft.name,
+    website: store.draft.website,
+    companyLinkedinUrl: store.draft.companyLinkedinUrl,
+    industry: store.draft.industryFocus,
+  }),
+  set: (value) => {
+    store.draft.name = value.name;
+    store.draft.website = value.website;
+    store.draft.companyLinkedinUrl = value.companyLinkedinUrl;
+    store.draft.industryFocus = Array.isArray(value.industry) ? value.industry : [];
+  },
+});
+
 const addressDraft = computed({
   get: () => ({
     street: store.draft.street,
@@ -406,7 +404,6 @@ const addressDraft = computed({
     state: store.draft.state,
     zip: store.draft.zip,
     phone: store.draft.phone,
-    companyLinkedinUrl: store.draft.companyLinkedinUrl,
   }),
   set: (value) => {
     store.draft.street = value.street;
@@ -414,15 +411,14 @@ const addressDraft = computed({
     store.draft.state = value.state;
     store.draft.zip = value.zip;
     store.draft.phone = value.phone;
-    store.draft.companyLinkedinUrl = value.companyLinkedinUrl;
   },
 });
 const hasCompanies = computed(() => companyOptions.value.length > 0);
 
-onMounted(() => {
-  store.init();
-  companiesStore.init();
-  positionsStore.init();
+onMounted(async () => {
+  await store.init();
+  await companiesStore.init();
+  await positionsStore.init();
 
   restoreHandoffState();
   syncCompanyRowsFromDraft();
@@ -571,27 +567,6 @@ function startEditRecruiter(item: RecruiterRecord) {
 function cancelEditRecruiter() {
   store.resetDraft();
   companyRelationshipRows.value = [];
-}
-
-function filterIndustryOptions(val: string, update: (fn: () => void) => void, abort: () => void) {
-  if (!val) {
-    update(() => {
-      filteredIndustryOptions.value = [...industryOptions];
-    });
-    return;
-  }
-
-  const needle = val.trim().toLowerCase();
-  if (!needle) {
-    abort();
-    return;
-  }
-
-  update(() => {
-    filteredIndustryOptions.value = industryOptions.filter((option) =>
-      option.toLowerCase().includes(needle),
-    );
-  });
 }
 
 function getPrimaryContact(item: (typeof store.items)[number]) {

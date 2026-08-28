@@ -6,6 +6,12 @@ import type {
   ApplicationStatus,
 } from '@/types/applications';
 import type { CompanyRecord, PositionRecord, RecruiterRecord } from '@/types/networking';
+import type {
+  InterviewPracticeSessionRecord,
+  InterviewQuestion,
+  InterviewQuestionCategory,
+  InterviewResponseRecord,
+} from '@/types/interviewPractice';
 
 type DraftApplication = Pick<
   ApplicationRecord,
@@ -44,10 +50,21 @@ type BackupMeta = {
 };
 
 type BackupPayload = {
-  version: 1;
+  version: 2;
   exportedAt: string;
   profile: UserProfile;
   applications: ApplicationRecord[];
+  companies: CompanyRecord[];
+  positions: PositionRecord[];
+  recruiters: RecruiterRecord[];
+  interviewQuestionCategories: InterviewQuestionCategory[];
+  interviewQuestions: InterviewQuestion[];
+  interviewPracticeSessions: InterviewPracticeSessionRecord[];
+  interviewResponses: InterviewResponseRecord[];
+};
+
+type BackupRecord = Partial<BackupPayload> & {
+  version?: unknown;
 };
 
 type HealthCheckResult = {
@@ -59,9 +76,6 @@ type HealthCheckResult = {
 
 const PROFILE_STORAGE_KEY = 'job-hunt-tracker-profile';
 const BACKUP_META_STORAGE_KEY = 'job-hunt-tracker-backup-meta';
-const COMPANIES_STORAGE_KEY = 'job-hunt-tracker-companies-v1';
-const POSITIONS_STORAGE_KEY = 'job-hunt-tracker-positions-v1';
-const RECRUITERS_STORAGE_KEY = 'job-hunt-tracker-recruiters-v1';
 
 function loadStoredProfile(): UserProfile {
   if (typeof window === 'undefined') {
@@ -121,10 +135,6 @@ async function clearLocalTrackerData() {
 
   window.localStorage.removeItem(PROFILE_STORAGE_KEY);
   window.localStorage.removeItem(BACKUP_META_STORAGE_KEY);
-  window.localStorage.removeItem(COMPANIES_STORAGE_KEY);
-  window.localStorage.removeItem(POSITIONS_STORAGE_KEY);
-  window.localStorage.removeItem(RECRUITERS_STORAGE_KEY);
-
   await db.delete();
 }
 
@@ -315,58 +325,31 @@ function normalizeApplication(input: Partial<ApplicationRecord>): ApplicationRec
   return normalized;
 }
 
-function loadStoredArray<T>(key: string): T[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(key);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function getStoredCompanyById(companyId: number | null) {
+async function getStoredCompanyById(companyId: number | null) {
   if (companyId == null) {
     return null;
   }
 
-  return (
-    loadStoredArray<CompanyRecord>(COMPANIES_STORAGE_KEY).find(
-      (item) => item.id === companyId && !item.archivedAt,
-    ) ?? null
-  );
+  const item = await db.companies.get(companyId);
+  return item && !item.archivedAt ? item : null;
 }
 
-function getStoredPositionById(positionId: number | null) {
+async function getStoredPositionById(positionId: number | null) {
   if (positionId == null) {
     return null;
   }
 
-  return (
-    loadStoredArray<PositionRecord>(POSITIONS_STORAGE_KEY).find(
-      (item) => item.id === positionId && !item.archivedAt,
-    ) ?? null
-  );
+  const item = await db.positions.get(positionId);
+  return item && !item.archivedAt ? item : null;
 }
 
-function getStoredRecruiterById(recruiterId: number | null) {
+async function getStoredRecruiterById(recruiterId: number | null) {
   if (recruiterId == null) {
     return null;
   }
 
-  return (
-    loadStoredArray<RecruiterRecord>(RECRUITERS_STORAGE_KEY).find(
-      (item) => item.id === recruiterId && !item.archivedAt,
-    ) ?? null
-  );
+  const item = await db.recruiters.get(recruiterId);
+  return item && !item.archivedAt ? item : null;
 }
 
 const createDraft = (): DraftApplication => ({
@@ -577,13 +560,17 @@ export const useApplicationsStore = defineStore('applications', {
 
     async save() {
       const now = new Date().toISOString();
-      const linkedPosition = getStoredPositionById(this.draft.positionId ?? null);
-      const linkedCompany = getStoredCompanyById(this.draft.companyId ?? null);
-      const linkedRecruiter = getStoredRecruiterById(this.draft.recruiterId ?? null);
+      const linkedPosition = await getStoredPositionById(this.draft.positionId ?? null);
+      const linkedCompany = await getStoredCompanyById(this.draft.companyId ?? null);
+      const linkedRecruiter = await getStoredRecruiterById(this.draft.recruiterId ?? null);
       const linkedCompanyFromPosition =
-        linkedPosition?.companyId != null ? getStoredCompanyById(linkedPosition.companyId) : null;
+        linkedPosition?.companyId != null
+          ? await getStoredCompanyById(linkedPosition.companyId)
+          : null;
       const linkedCompanyFromRecruiter =
-        linkedRecruiter?.companyId != null ? getStoredCompanyById(linkedRecruiter.companyId) : null;
+        linkedRecruiter?.companyId != null
+          ? await getStoredCompanyById(linkedRecruiter.companyId)
+          : null;
       const recruiterConflictsWithPosition =
         linkedPosition?.companyId != null &&
         linkedRecruiter?.companyId != null &&
@@ -594,7 +581,7 @@ export const useApplicationsStore = defineStore('applications', {
         ? null
         : (linkedRecruiter?.id ?? this.draft.recruiterId ?? null);
       const nextRecruiterName =
-        linkedRecruiter?.fullName.trim() || this.draft.recruiterName?.trim() || '';
+        linkedRecruiter?.name.trim() || this.draft.recruiterName?.trim() || '';
       const nextCompanyId =
         linkedPosition?.companyId != null
           ? linkedPosition.companyId
@@ -1094,12 +1081,26 @@ export const useApplicationsStore = defineStore('applications', {
 
     async exportBackup() {
       const applications = await db.applications.toArray();
+      const companies = await db.companies.toArray();
+      const positions = await db.positions.toArray();
+      const recruiters = await db.recruiters.toArray();
+      const interviewQuestionCategories = await db.interviewQuestionCategories.toArray();
+      const interviewQuestions = await db.interviewQuestions.toArray();
+      const interviewPracticeSessions = await db.interviewPracticeSessions.toArray();
+      const interviewResponses = await db.interviewResponses.toArray();
       const exportedAt = new Date().toISOString();
       const payload: BackupPayload = {
-        version: 1,
+        version: 2,
         exportedAt,
         profile: this.profile,
         applications,
+        companies,
+        positions,
+        recruiters,
+        interviewQuestionCategories,
+        interviewQuestions,
+        interviewPracticeSessions,
+        interviewResponses,
       };
 
       this.backupMeta.lastExportAt = exportedAt;
@@ -1121,18 +1122,71 @@ export const useApplicationsStore = defineStore('applications', {
         throw new Error('Backup file format is not supported.');
       }
 
-      const record = parsed as Partial<BackupPayload>;
+      const record = parsed as BackupRecord;
       if (!Array.isArray(record.applications)) {
         throw new Error('Backup is missing applications data.');
       }
+
+      const collections = [
+        'companies',
+        'positions',
+        'recruiters',
+        'interviewQuestionCategories',
+        'interviewQuestions',
+        'interviewPracticeSessions',
+        'interviewResponses',
+      ] as const;
+      if (collections.some((collection) => !Array.isArray(record[collection]))) {
+        throw new Error('Backup is missing one or more data collections.');
+      }
+
+      const companies = record.companies as CompanyRecord[];
+      const positions = record.positions as PositionRecord[];
+      const recruiters = record.recruiters as RecruiterRecord[];
+      const interviewQuestionCategories =
+        record.interviewQuestionCategories as InterviewQuestionCategory[];
+      const interviewQuestions = record.interviewQuestions as InterviewQuestion[];
+      const interviewPracticeSessions =
+        record.interviewPracticeSessions as InterviewPracticeSessionRecord[];
+      const interviewResponses = record.interviewResponses as InterviewResponseRecord[];
 
       const normalized = record.applications.map((item) =>
         normalizeApplication(item as Partial<ApplicationRecord>),
       );
 
-      await db.transaction('rw', db.applications, async () => {
-        await db.applications.clear();
-        await db.applications.bulkAdd(normalized);
+      await db.transaction(
+        'rw',
+        db.applications,
+        db.companies,
+        db.positions,
+        db.recruiters,
+        async () => {
+          await db.applications.clear();
+          await db.applications.bulkAdd(normalized);
+          await db.companies.clear();
+          await db.companies.bulkAdd(companies);
+          await db.positions.clear();
+          await db.positions.bulkAdd(positions);
+          await db.recruiters.clear();
+          await db.recruiters.bulkAdd(recruiters);
+        },
+      );
+      await db.transaction(
+        'rw',
+        db.interviewQuestionCategories,
+        db.interviewQuestions,
+        async () => {
+          await db.interviewQuestionCategories.clear();
+          await db.interviewQuestionCategories.bulkAdd(interviewQuestionCategories);
+          await db.interviewQuestions.clear();
+          await db.interviewQuestions.bulkAdd(interviewQuestions);
+        },
+      );
+      await db.transaction('rw', db.interviewPracticeSessions, db.interviewResponses, async () => {
+        await db.interviewPracticeSessions.clear();
+        await db.interviewPracticeSessions.bulkAdd(interviewPracticeSessions);
+        await db.interviewResponses.clear();
+        await db.interviewResponses.bulkAdd(interviewResponses);
       });
 
       if (record.profile && typeof record.profile.name === 'string') {

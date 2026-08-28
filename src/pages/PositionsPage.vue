@@ -320,21 +320,19 @@ const companyNameById = computed(() => {
 const hasCompanies = computed(() => companyOptions.value.length > 0);
 
 const recruiterOptions = computed(() => {
-  const sorted = recruitersStore.activeItems
-    .slice()
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const sorted = recruitersStore.activeItems.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   return sorted.map((recruiter) => ({
     label:
       recruiter.companyId != null && companyNameById.value[recruiter.companyId]
-        ? `${recruiter.fullName} (${companyNameById.value[recruiter.companyId]})`
-        : recruiter.fullName,
+        ? `${recruiter.name} (${companyNameById.value[recruiter.companyId]})`
+        : recruiter.name,
     value: recruiter.id,
   }));
 });
 const recruiterNameById = computed(() => {
   return recruitersStore.activeItems.reduce<Record<number, string>>((acc, recruiter) => {
-    acc[recruiter.id] = recruiter.fullName;
+    acc[recruiter.id] = recruiter.name;
     return acc;
   }, {});
 });
@@ -352,9 +350,9 @@ const applicationCountByPositionId = computed(() => {
 });
 
 onMounted(async () => {
-  store.init();
-  companiesStore.init();
-  recruitersStore.init();
+  await store.init();
+  await companiesStore.init();
+  await recruitersStore.init();
   await applicationsStore.init();
 
   restoreHandoffState();
@@ -375,7 +373,7 @@ async function submitPosition() {
       ? (store.items.find((item) => item.id === currentEditingId)?.title.trim() ?? '')
       : '';
 
-  store.save();
+  await store.save();
   const savedPositionId =
     currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
 
@@ -431,7 +429,7 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
   ).length;
 
   if (linkedApplications === 0) {
-    store.remove(positionId);
+    await store.remove(positionId);
     return;
   }
 
@@ -442,7 +440,7 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
 
   if (resolution === 'clear') {
     await applicationsStore.reassignPositionReferences(positionId, null);
-    store.remove(positionId);
+    await store.remove(positionId);
     $q.notify({
       type: 'positive',
       message: `Position archived and ${linkedApplications} linked application${linkedApplications === 1 ? '' : 's'} updated.`,
@@ -460,7 +458,7 @@ async function tryRemovePosition(positionId: number, positionTitle: string) {
     targetPositionId,
     getPositionTitle(targetPositionId),
   );
-  store.remove(positionId);
+  await store.remove(positionId);
   $q.notify({
     type: 'positive',
     message: `Position archived and links reassigned to ${getPositionTitle(targetPositionId)}.`,

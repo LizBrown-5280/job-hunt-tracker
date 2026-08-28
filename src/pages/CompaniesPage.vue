@@ -5,28 +5,11 @@
         <q-card class="q-pa-md">
           <div class="text-h6 q-mb-md">{{ editingId ? 'Edit company' : 'Add company' }}</div>
           <q-form @submit.prevent="submitCompany">
-            <section>
-              <q-input
-                v-model="store.draft.name"
-                label="Company name"
-                filled
-                dense
-                class="q-mb-sm"
-              />
-              <q-input v-model="store.draft.website" label="Website" filled dense class="q-mb-sm" />
-              <q-select
-                v-model="store.draft.industry"
-                :options="filteredIndustryOptions"
-                label="Industry"
-                filled
-                dense
-                clearable
-                use-input
-                input-debounce="0"
-                @filter="filterIndustryOptions"
-                class="q-mb-sm"
-              />
-            </section>
+            <OrganizationDetailsSection
+              v-model="organizationDetailsDraft"
+              name-label="Company name"
+              :industry-options="industryOptions"
+            />
 
             <AddressContactSection v-model="addressDraft" />
 
@@ -105,9 +88,8 @@
             />
 
             <section class="form-section-spacing">
-              <div class="text-subtitle2 q-mb-xs">Relationship</div>
               <div class="row items-center q-mb-xs">
-                <div class="text-subtitle2">Recruiting Firms</div>
+                <div class="text-subtitle2">Related Recruiting Firms (optional)</div>
                 <q-space />
                 <q-btn
                   color="primary"
@@ -427,6 +409,7 @@ import { useRecruitersStore } from '@/stores/recruiters';
 import { useApplicationsStore } from '@/stores/applications';
 import { returnFromHandoffWithId } from '@/composables/navigationHandoff';
 import AddressContactSection from '@/components/forms/AddressContactSection.vue';
+import OrganizationDetailsSection from '@/components/forms/OrganizationDetailsSection.vue';
 import NotesSection from '@/components/forms/NotesSection.vue';
 
 const store = useCompaniesStore();
@@ -459,7 +442,6 @@ const industryOptions = [
   'Other',
 ];
 
-const filteredIndustryOptions = ref([...industryOptions]);
 const importantNameCategoryOptions = [
   'Founder',
   'CEO',
@@ -486,12 +468,27 @@ const recruiterRelationshipRows = ref<Array<{ rowId: number; recruiterId: number
 const recruiterOptions = computed(() =>
   recruitersStore.activeItems
     .slice()
-    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map((recruiter) => ({
-      label: recruiter.fullName,
+      label: recruiter.name,
       value: recruiter.id,
     })),
 );
+
+const organizationDetailsDraft = computed({
+  get: () => ({
+    name: store.draft.name,
+    website: store.draft.website,
+    companyLinkedinUrl: store.draft.companyLinkedinUrl,
+    industry: store.draft.industry,
+  }),
+  set: (value) => {
+    store.draft.name = value.name;
+    store.draft.website = value.website;
+    store.draft.companyLinkedinUrl = value.companyLinkedinUrl;
+    store.draft.industry = typeof value.industry === 'string' ? value.industry : '';
+  },
+});
 
 const hasRecruiters = computed(() => recruiterOptions.value.length > 0);
 
@@ -525,7 +522,7 @@ const selectedRecruiterReassignWarning = computed(() => {
     const currentCompanyName =
       store.items.find((item) => item.id === conflictingCompanyId)?.name ?? 'another company';
     messages.push(
-      `${recruiter.fullName} is already linked to ${currentCompanyName}. Saving will add this company as another relationship.`,
+      `${recruiter.name} is already linked to ${currentCompanyName}. Saving will add this company as another relationship.`,
     );
   });
 
@@ -579,7 +576,6 @@ const addressDraft = computed({
     state: store.draft.state,
     zip: store.draft.zip,
     phone: store.draft.phone,
-    companyLinkedinUrl: store.draft.companyLinkedinUrl,
   }),
   set: (value) => {
     store.draft.street = value.street;
@@ -587,30 +583,8 @@ const addressDraft = computed({
     store.draft.state = value.state;
     store.draft.zip = value.zip;
     store.draft.phone = value.phone;
-    store.draft.companyLinkedinUrl = value.companyLinkedinUrl;
   },
 });
-
-function filterIndustryOptions(val: string, update: (fn: () => void) => void, abort: () => void) {
-  if (!val) {
-    update(() => {
-      filteredIndustryOptions.value = [...industryOptions];
-    });
-    return;
-  }
-
-  const needle = val.trim().toLowerCase();
-  if (!needle) {
-    abort();
-    return;
-  }
-
-  update(() => {
-    filteredIndustryOptions.value = industryOptions.filter((option) =>
-      option.toLowerCase().includes(needle),
-    );
-  });
-}
 
 function formatCompanyAddress(item: (typeof store.items)[number]) {
   const parts = [item.street, item.city, item.state, item.zip].filter((value) => value.trim());
@@ -651,7 +625,7 @@ function getRecentRecruiterTieHistory(companyId: number) {
 
       ties.push({
         changedAt: entry.changedAt,
-        recruiterName: recruiter.fullName,
+        recruiterName: recruiter.name,
         reason: entry.reason,
       });
     });
@@ -696,7 +670,7 @@ function formatRecruiterTieHistoryEntry(entry: RecruiterTieHistoryEntry) {
 function formatPositionTieHistoryEntry(entry: PositionTieHistoryEntry) {
   const recruiterName =
     entry.recruiterId != null
-      ? (recruitersStore.items.find((item) => item.id === entry.recruiterId)?.fullName ??
+      ? (recruitersStore.items.find((item) => item.id === entry.recruiterId)?.name ??
         `Recruiting firm #${entry.recruiterId}`)
       : 'No recruiting firm';
 
@@ -729,9 +703,9 @@ function formatHistoryDate(value: string) {
 }
 
 onMounted(async () => {
-  store.init();
-  positionsStore.init();
-  recruitersStore.init();
+  await store.init();
+  await positionsStore.init();
+  await recruitersStore.init();
   await applicationsStore.init();
 });
 
@@ -745,14 +719,16 @@ async function submitCompany() {
       ? (store.items.find((item) => item.id === currentEditingId)?.name.trim() ?? '')
       : '';
 
-  store.save();
+  await store.save();
   const savedCompanyId =
     currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
 
   if (savedCompanyId != null) {
-    recruiterIdsToLink.forEach((recruiterId) => {
-      recruitersStore.addCompanyReference(recruiterId, savedCompanyId, 'updated');
-    });
+    await Promise.all(
+      recruiterIdsToLink.map((recruiterId) =>
+        recruitersStore.addCompanyReference(recruiterId, savedCompanyId, 'updated'),
+      ),
+    );
   }
 
   recruiterRelationshipRows.value = [];
@@ -833,8 +809,8 @@ function returnFromHandoff(companyId: number | null) {
 }
 
 async function tryRemoveCompany(companyId: number, companyName: string) {
-  positionsStore.init();
-  recruitersStore.init();
+  await positionsStore.init();
+  await recruitersStore.init();
   await applicationsStore.init();
 
   const linkedPositions = positionsStore.items.filter(
@@ -856,7 +832,7 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
   const linkedTotal = linkedPositions + linkedRecruiters + linkedApplications;
 
   if (linkedTotal === 0) {
-    store.remove(companyId);
+    await store.remove(companyId);
     return;
   }
 
@@ -877,10 +853,10 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
   }
 
   if (resolution === 'clear') {
-    positionsStore.reassignCompanyReferences(companyId, null);
-    recruitersStore.reassignCompanyReferences(companyId, null);
+    await positionsStore.reassignCompanyReferences(companyId, null);
+    await recruitersStore.reassignCompanyReferences(companyId, null);
     await applicationsStore.reassignCompanyReferences(companyId, null);
-    store.remove(companyId);
+    await store.remove(companyId);
     $q.notify({
       type: 'positive',
       message: `Company archived and ${linkedTotal} linked record${linkedTotal === 1 ? '' : 's'} updated.`,
@@ -893,14 +869,14 @@ async function tryRemoveCompany(companyId: number, companyName: string) {
     return;
   }
 
-  positionsStore.reassignCompanyReferences(companyId, targetCompanyId);
-  recruitersStore.reassignCompanyReferences(companyId, targetCompanyId);
+  await positionsStore.reassignCompanyReferences(companyId, targetCompanyId);
+  await recruitersStore.reassignCompanyReferences(companyId, targetCompanyId);
   await applicationsStore.reassignCompanyReferences(
     companyId,
     targetCompanyId,
     getCompanyName(targetCompanyId),
   );
-  store.remove(companyId);
+  await store.remove(companyId);
   $q.notify({
     type: 'positive',
     message: `Company archived and links reassigned to ${getCompanyName(targetCompanyId)}.`,

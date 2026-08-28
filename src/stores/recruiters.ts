@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia';
-import type {
-  RecruiterContact,
-  RecruiterLinkHistoryEntry,
-  RecruiterRecord,
-} from '@/types/networking';
+import { db } from '@/db/database';
+import type { RecruiterContact, RecruiterRecord } from '@/types/networking';
 import { useApplicationsStore } from '@/stores/applications';
 
 type RecruiterContactDraft = RecruiterContact & { rowId: number };
@@ -14,16 +11,9 @@ type RecruiterDraft = Omit<
   contacts: RecruiterContactDraft[];
 };
 
-type LegacyRecruiterRecord = Partial<RecruiterRecord> & {
-  email?: unknown;
-  linkedinUrl?: unknown;
-};
-
-const STORAGE_KEY = 'job-hunt-tracker-recruiters-v1';
-
 function createDraft(): RecruiterDraft {
   return {
-    fullName: '',
+    name: '',
     companyId: null,
     companyIds: [],
     website: '',
@@ -40,77 +30,12 @@ function createDraft(): RecruiterDraft {
   };
 }
 
-function normalizeCompanyIds(value: unknown): number[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      value.filter((item): item is number => typeof item === 'number' && Number.isFinite(item)),
-    ),
-  );
-}
-
 function areNumberArraysEqual(a: number[], b: number[]) {
   if (a.length !== b.length) {
     return false;
   }
 
   return a.every((value, index) => value === b[index]);
-}
-
-function normalizeIndustryFocus(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter((item) => item.length > 0);
-}
-
-function normalizeContact(value: unknown): RecruiterContact | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  const item = value as Partial<RecruiterContact> & {
-    fullName?: unknown;
-  };
-
-  const name =
-    typeof item.name === 'string'
-      ? item.name.trim()
-      : typeof item.fullName === 'string'
-        ? item.fullName.trim()
-        : '';
-  const title = typeof item.title === 'string' ? item.title.trim() : '';
-  const phone = typeof item.phone === 'string' ? item.phone.trim() : '';
-  const email = typeof item.email === 'string' ? item.email.trim() : '';
-  const linkedinUrl = typeof item.linkedinUrl === 'string' ? item.linkedinUrl.trim() : '';
-
-  if (!name && !title && !phone && !email && !linkedinUrl) {
-    return null;
-  }
-
-  return {
-    name,
-    title,
-    phone,
-    email,
-    linkedinUrl,
-  };
-}
-
-function normalizeContacts(value: unknown): RecruiterContact[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => normalizeContact(item))
-    .filter((item): item is RecruiterContact => item !== null);
 }
 
 function toContactDraftRows(items: RecruiterContact[]): RecruiterContactDraft[] {
@@ -122,140 +47,15 @@ function toContactDraftRows(items: RecruiterContact[]): RecruiterContactDraft[] 
   }));
 }
 
-function normalizeLinkHistory(
-  value: unknown,
-  fallbackCreatedAt: string,
-  companyId: number | null,
-): RecruiterLinkHistoryEntry[] {
-  if (!Array.isArray(value)) {
-    return [
-      {
-        changedAt: fallbackCreatedAt,
-        companyId,
-        reason: 'initial',
-      },
-    ];
-  }
-
-  const normalized = value
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return null;
-      }
-
-      const entry = item as Partial<RecruiterLinkHistoryEntry>;
-      return {
-        changedAt: typeof entry.changedAt === 'string' ? entry.changedAt : fallbackCreatedAt,
-        companyId: typeof entry.companyId === 'number' ? entry.companyId : null,
-        reason: typeof entry.reason === 'string' && entry.reason ? entry.reason : 'updated',
-      };
-    })
-    .filter((entry): entry is RecruiterLinkHistoryEntry => entry !== null);
-
-  if (normalized.length > 0) {
-    return normalized;
-  }
-
-  return [
-    {
-      changedAt: fallbackCreatedAt,
-      companyId,
-      reason: 'initial',
-    },
-  ];
+async function loadRecruiters(): Promise<RecruiterRecord[]> {
+  return db.recruiters.toArray();
 }
 
-function normalizeRecruiterRecord(item: LegacyRecruiterRecord, index: number): RecruiterRecord {
-  const fallbackId = index + 1;
-  const id = typeof item.id === 'number' && Number.isFinite(item.id) ? item.id : fallbackId;
-  const fullName = typeof item.fullName === 'string' ? item.fullName.trim() : '';
-  const now = new Date().toISOString();
-  const website = typeof item.website === 'string' ? item.website.trim() : '';
-  const industryFocus = normalizeIndustryFocus(item.industryFocus);
-  const street = typeof item.street === 'string' ? item.street.trim() : '';
-  const city = typeof item.city === 'string' ? item.city.trim() : '';
-  const state = typeof item.state === 'string' ? item.state.trim() : '';
-  const zip = typeof item.zip === 'string' ? item.zip.trim() : '';
-  const phone = typeof item.phone === 'string' ? item.phone.trim() : '';
-  const companyLinkedinUrl =
-    typeof item.companyLinkedinUrl === 'string'
-      ? item.companyLinkedinUrl.trim()
-      : typeof item.linkedinUrl === 'string'
-        ? item.linkedinUrl.trim()
-        : '';
-  const contacts = normalizeContacts(item.contacts);
-
-  const legacyEmail = typeof item.email === 'string' ? item.email.trim() : '';
-  const legacyLinkedinUrl = typeof item.linkedinUrl === 'string' ? item.linkedinUrl.trim() : '';
-  const legacyContact = normalizeContact({
-    name: fullName,
-    email: legacyEmail,
-    linkedinUrl: legacyLinkedinUrl,
+async function persistRecruiters(items: RecruiterRecord[]) {
+  await db.transaction('rw', db.recruiters, async () => {
+    await db.recruiters.clear();
+    await db.recruiters.bulkPut(items);
   });
-  const normalizedContacts = contacts.length ? contacts : legacyContact ? [legacyContact] : [];
-  const companyId =
-    typeof item.companyId === 'number' && Number.isFinite(item.companyId) ? item.companyId : null;
-  const normalizedCompanyIds = normalizeCompanyIds(item.companyIds);
-  const companyIds = normalizedCompanyIds.length
-    ? normalizedCompanyIds
-    : companyId != null
-      ? [companyId]
-      : [];
-  const primaryCompanyId = companyIds[0] ?? null;
-  const createdAt = typeof item.createdAt === 'string' && item.createdAt ? item.createdAt : now;
-
-  return {
-    id,
-    fullName,
-    companyId: primaryCompanyId,
-    companyIds,
-    website,
-    industryFocus,
-    street,
-    city,
-    state,
-    zip,
-    phone,
-    companyLinkedinUrl,
-    contacts: normalizedContacts,
-    linkHistory: normalizeLinkHistory(item.linkHistory, createdAt, primaryCompanyId),
-    relationship:
-      item.relationship === 'Active' || item.relationship === 'Dormant' ? item.relationship : 'New',
-    notes: typeof item.notes === 'string' ? item.notes.trim() : '',
-    archivedAt: typeof item.archivedAt === 'string' ? item.archivedAt : null,
-    createdAt,
-    updatedAt: typeof item.updatedAt === 'string' && item.updatedAt ? item.updatedAt : now,
-  };
-}
-
-function loadRecruiters(): RecruiterRecord[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as LegacyRecruiterRecord[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.map((item, index) => normalizeRecruiterRecord(item, index));
-  } catch {
-    return [];
-  }
-}
-
-function persistRecruiters(items: RecruiterRecord[]) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 export const useRecruitersStore = defineStore('recruiters', {
@@ -302,7 +102,7 @@ export const useRecruitersStore = defineStore('recruiters', {
         }
 
         return [
-          recruiter.fullName,
+          recruiter.name,
           recruiter.website,
           recruiter.notes,
           recruiter.companyLinkedinUrl,
@@ -327,8 +127,8 @@ export const useRecruitersStore = defineStore('recruiters', {
   },
 
   actions: {
-    init() {
-      this.items = loadRecruiters();
+    async init() {
+      this.items = await loadRecruiters();
     },
 
     resetDraft() {
@@ -339,7 +139,7 @@ export const useRecruitersStore = defineStore('recruiters', {
     startEdit(item: RecruiterRecord) {
       this.editingId = item.id;
       this.draft = {
-        fullName: item.fullName,
+        name: item.name,
         companyId: item.companyId,
         companyIds: item.companyIds?.length
           ? [...item.companyIds]
@@ -364,7 +164,7 @@ export const useRecruitersStore = defineStore('recruiters', {
       const currentEditingId = this.editingId;
       const previousName =
         currentEditingId != null
-          ? (this.items.find((item) => item.id === currentEditingId)?.fullName.trim() ?? '')
+          ? (this.items.find((item) => item.id === currentEditingId)?.name.trim() ?? '')
           : '';
 
       const contacts = this.draft.contacts
@@ -387,7 +187,7 @@ export const useRecruitersStore = defineStore('recruiters', {
       );
       const primaryCompanyId = normalizedCompanyIds[0] ?? null;
       const payload = {
-        fullName: this.draft.fullName.trim(),
+        name: this.draft.name.trim(),
         companyId: primaryCompanyId,
         companyIds: normalizedCompanyIds,
         website: this.draft.website.trim(),
@@ -403,7 +203,7 @@ export const useRecruitersStore = defineStore('recruiters', {
         notes: this.draft.notes.trim(),
       };
 
-      if (!payload.fullName) {
+      if (!payload.name) {
         return;
       }
 
@@ -429,14 +229,11 @@ export const useRecruitersStore = defineStore('recruiters', {
               }
             : item,
         );
-        persistRecruiters(this.items);
+        await persistRecruiters(this.items);
         this.resetDraft();
 
-        if (currentEditingId != null && payload.fullName !== previousName) {
-          await useApplicationsStore().syncRecruiterNameReferences(
-            currentEditingId,
-            payload.fullName,
-          );
+        if (currentEditingId != null && payload.name !== previousName) {
+          await useApplicationsStore().syncRecruiterNameReferences(currentEditingId, payload.name);
         }
 
         return;
@@ -458,7 +255,7 @@ export const useRecruitersStore = defineStore('recruiters', {
         updatedAt: now,
       });
 
-      persistRecruiters(this.items);
+      await persistRecruiters(this.items);
       this.resetDraft();
     },
 
@@ -481,27 +278,27 @@ export const useRecruitersStore = defineStore('recruiters', {
       this.draft.contacts = this.draft.contacts.filter((item) => item.rowId !== rowId);
     },
 
-    remove(id: number) {
+    async remove(id: number) {
       const now = new Date().toISOString();
       this.items = this.items.map((item) =>
         item.id === id ? { ...item, archivedAt: now, updatedAt: now } : item,
       );
-      persistRecruiters(this.items);
+      await persistRecruiters(this.items);
 
       if (this.editingId === id) {
         this.resetDraft();
       }
     },
 
-    restore(id: number) {
+    async restore(id: number) {
       const now = new Date().toISOString();
       this.items = this.items.map((item) =>
         item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
       );
-      persistRecruiters(this.items);
+      await persistRecruiters(this.items);
     },
 
-    reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
+    async reassignCompanyReferences(fromCompanyId: number, toCompanyId: number | null) {
       const now = new Date().toISOString();
       let changed = false;
 
@@ -546,11 +343,11 @@ export const useRecruitersStore = defineStore('recruiters', {
       });
 
       if (changed) {
-        persistRecruiters(this.items);
+        await persistRecruiters(this.items);
       }
     },
 
-    setCompanyReference(recruiterId: number, companyId: number | null, reason = 'updated') {
+    async setCompanyReference(recruiterId: number, companyId: number | null, reason = 'updated') {
       const now = new Date().toISOString();
       let changed = false;
 
@@ -586,7 +383,7 @@ export const useRecruitersStore = defineStore('recruiters', {
       });
 
       if (changed) {
-        persistRecruiters(this.items);
+        await persistRecruiters(this.items);
 
         if (this.editingId === recruiterId) {
           this.draft.companyId = companyId;
@@ -595,7 +392,7 @@ export const useRecruitersStore = defineStore('recruiters', {
       }
     },
 
-    addCompanyReference(recruiterId: number, companyId: number, reason = 'updated') {
+    async addCompanyReference(recruiterId: number, companyId: number, reason = 'updated') {
       const now = new Date().toISOString();
       let changed = false;
 
@@ -634,7 +431,7 @@ export const useRecruitersStore = defineStore('recruiters', {
       });
 
       if (changed) {
-        persistRecruiters(this.items);
+        await persistRecruiters(this.items);
 
         if (this.editingId === recruiterId && !this.draft.companyIds.includes(companyId)) {
           this.draft.companyIds = [...this.draft.companyIds, companyId];

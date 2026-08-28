@@ -14,13 +14,6 @@
       </div>
     </div>
     <q-input v-model="phone" label="Phone number" filled dense class="q-mb-sm" />
-    <q-input
-      v-model="companyLinkedinUrl"
-      label="Company LinkedIn URL"
-      filled
-      dense
-      class="q-mb-sm"
-    />
   </section>
 </template>
 
@@ -33,7 +26,6 @@ type AddressContactModel = {
   state: string;
   zip: string;
   phone: string;
-  companyLinkedinUrl: string;
 };
 
 const props = withDefaults(
@@ -80,10 +72,5 @@ const zip = computed({
 const phone = computed({
   get: () => props.modelValue.phone,
   set: (value) => updateField('phone', value),
-});
-
-const companyLinkedinUrl = computed({
-  get: () => props.modelValue.companyLinkedinUrl,
-  set: (value) => updateField('companyLinkedinUrl', value),
 });
 </script>

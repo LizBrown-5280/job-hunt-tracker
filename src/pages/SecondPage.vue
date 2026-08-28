@@ -341,10 +341,10 @@ const decisionsThisWeek = computed(() => {
     .slice(0, 6);
 });
 
-onMounted(() => {
-  companiesStore.init();
-  positionsStore.init();
-  void store.init();
+onMounted(async () => {
+  await companiesStore.init();
+  await positionsStore.init();
+  await store.init();
 });
 
 function refreshData() {
