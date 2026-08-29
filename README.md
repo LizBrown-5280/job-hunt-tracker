@@ -41,27 +41,35 @@ This repository is configured to deploy to Firebase Hosting for:
 1. Pull requests: preview channels
 2. Pushes to `main`: live channel
 
+Two Hosting sites are deployed from this one Firebase project:
+
+- **`spa` target** → site `job-hunt-tracker-d9d65` → `dist/spa` (plain SPA build) → https://job-hunt-tracker-d9d65.web.app
+- **`pwa` target** → site `job-hunt-tracker-pwa` → `dist/pwa` (installable PWA build, `quasar build -m pwa`) → https://job-hunt-tracker-pwa.web.app
+
+`npm run build:all` builds both. `firebase deploy --only hosting` deploys both targets in one command (target mapping lives in `.firebaserc`).
+
 ### Project Defaults
 
 1. Firebase project ID: `job-hunt-tracker-d9d65`
-2. Hosting site ID: `job-hunt-tracker-d9d65`
-3. Hosting public directory: `dist/spa`
-4. SPA rewrite: all routes to `/index.html`
+2. SPA rewrite: all routes to `/index.html` (both targets)
 
 ### One-Time Setup
 
 1. Create (or confirm) the Firebase project `job-hunt-tracker-d9d65`.
-2. In Firebase Hosting, ensure site `job-hunt-tracker-d9d65` exists.
+2. In Firebase Hosting, ensure sites `job-hunt-tracker-d9d65` and `job-hunt-tracker-pwa` exist.
 3. Create a GitHub Actions service account secret named `FIREBASE_SERVICE_ACCOUNT_JOB_HUNT_TRACKER`.
 4. Add that secret in GitHub repository settings:
    `Settings > Secrets and variables > Actions > New repository secret`.
 
 ### Custom Domain (`tracker.lizbrown5280.com`)
 
-1. In Firebase Hosting, add custom domain `tracker.lizbrown5280.com`.
+The PWA site (`job-hunt-tracker-pwa`) is intended to carry this custom domain, so the installable app lives at a branded URL while the plain SPA keeps its default `.web.app` address.
+
+1. In Firebase Hosting, on the `job-hunt-tracker-pwa` site, add custom domain `tracker.lizbrown5280.com`.
 2. Firebase will provide DNS records.
 3. In GoDaddy DNS, add the exact records provided by Firebase.
 4. Wait for Firebase domain verification and SSL certificate provisioning.
+5. In Authentication → Settings → Authorized domains, confirm `tracker.lizbrown5280.com` was added automatically (add manually if not).
 
 ### Workflow Files
 
@@ -94,7 +102,7 @@ When reliability smoke is intentionally skipped for velocity, log it immediately
 ### Local Manual Deploy (optional)
 
 ```bash
-npm run build
+npm run build:all
 npx firebase-tools deploy --only hosting --project job-hunt-tracker-d9d65
 ```
 

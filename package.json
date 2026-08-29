@@ -11,6 +11,8 @@
     "lint:check": "prettier \"**/*.{js,ts,vue,css,html,md,json}\" --ignore-path .gitignore && eslint -c ./eslint.config.js \"./src*/**/*.{ts,js,cjs,mjs,vue}\"",
     "dev": "quasar dev",
     "build": "quasar build",
+    "build:pwa": "quasar build -m pwa",
+    "build:all": "pnpm build && pnpm build:pwa",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "smoke:reliability": "node scripts/reliability-smoke.mjs",

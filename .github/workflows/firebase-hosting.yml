@@ -31,7 +31,7 @@ jobs:
         run: npm ci
 
       - name: Build app
-        run: npm run build
+        run: npm run build:all
 
       - name: Deploy preview channel
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -60,7 +60,7 @@ jobs:
         run: npm ci
 
       - name: Build app
-        run: npm run build
+        run: npm run build:all
 
       - name: Deploy to live channel
         uses: FirebaseExtended/action-hosting-deploy@v0

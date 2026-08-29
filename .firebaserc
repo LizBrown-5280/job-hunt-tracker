@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "job-hunt-tracker-d9d65"
-  }
+  },
+  "targets": {
+    "job-hunt-tracker-d9d65": {
+      "hosting": {
+        "spa": [
+          "job-hunt-tracker-d9d65"
+        ],
+        "pwa": [
+          "job-hunt-tracker-pwa"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
