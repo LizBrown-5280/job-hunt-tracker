@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // A user may only read their own allowlist entry (doc id = lowercased email).
+    // Entries are managed manually via the Firebase console, so no client writes are allowed.
+    match /authorizedUsers/{email} {
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == email;
+      allow write: if false;
+    }
+  }
+}

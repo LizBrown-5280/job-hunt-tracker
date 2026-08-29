@@ -1,15 +1,15 @@
 ---
 id: 'interview-practice-accessibility-polish-2026-08-24'
-status: 'todo'
+status: 'backlog'
 priority: 'low'
 assignee: null
 epic: 'interview-practice-feature-suite-2026-08-24'
 dueDate: null
 created: '2026-08-24T17:50:00.000Z'
-modified: '2026-08-24T20:20:00.000Z'
+modified: '2026-08-29T18:08:40.686Z'
 completedAt: null
 labels: ['feature', 'accessibility', 'interviews', 'polish']
-order: 'aS'
+order: 'a08'
 ---
 
 # Interview Practice: Accessibility & Polish

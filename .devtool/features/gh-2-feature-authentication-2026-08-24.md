@@ -1,15 +1,15 @@
 ---
 id: 'gh-2-feature-authentication-2026-08-24'
-status: 'backlog'
+status: 'todo'
 priority: 'high'
 assignee: null
 epic: 'foundation-architecture-epic-2026-08-24'
 dueDate: null
 created: '2026-08-24T17:30:00.000Z'
-modified: '2026-08-24T17:30:00.000Z'
+modified: '2026-08-29T18:08:51.209Z'
 completedAt: null
 labels: ['feature', 'auth', 'backend']
-order: 'aG'
+order: 'a0'
 ---
 
 # FEATURE: Authentication

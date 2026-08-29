@@ -1,15 +1,15 @@
 ---
 id: 'gh-3-feature-delete-data-account-2026-08-24'
-status: 'backlog'
+status: 'todo'
 priority: 'medium'
 assignee: null
 epic: 'foundation-architecture-epic-2026-08-24'
 dueDate: null
 created: '2026-08-24T17:30:00.000Z'
-modified: '2026-08-28T11:15:00.000Z'
+modified: '2026-08-29T18:09:26.614Z'
 completedAt: null
 labels: ['feature', 'data-privacy']
-order: 'aF'
+order: 'a1'
 ---
 
 # Feature: Manage and Delete Local Data

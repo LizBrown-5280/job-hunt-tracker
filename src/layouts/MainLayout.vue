@@ -14,6 +14,10 @@
           @click="openDevTools"
         />
         <q-chip color="white" text-color="primary">Local-first</q-chip>
+        <q-chip v-if="authStore.user?.email" color="white" text-color="primary" class="q-ml-sm">
+          {{ authStore.user.email }}
+        </q-chip>
+        <q-btn flat dense round icon="logout" aria-label="Sign out" @click="onSignOut" />
       </q-toolbar>
     </q-header>
 
@@ -146,13 +150,21 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useApplicationsStore } from '@/stores/applications';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
+const router = useRouter();
 const $q = useQuasar();
 const store = useApplicationsStore();
+const authStore = useAuthStore();
+
+async function onSignOut() {
+  await authStore.signOutUser();
+  void router.push('/login');
+}
 const leftDrawerOpen = ref(false);
 const showDevTools = ref(false);
 const showSettings = ref(false);

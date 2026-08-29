@@ -1,15 +1,15 @@
 ---
 id: 'manage-interview-question-categories-2026-08-24'
-status: 'todo'
+status: 'backlog'
 priority: 'low'
 assignee: null
 epic: 'interview-practice-feature-suite-2026-08-24'
 dueDate: null
 created: '2026-08-24T19:46:30.000Z'
-modified: '2026-08-24T20:20:00.000Z'
+modified: '2026-08-29T18:08:39.295Z'
 completedAt: null
 labels: ['feature', 'interviews', 'categories', 'ux']
-order: 'aQ'
+order: 'a0G'
 ---
 
 # Manage Interview Question Categories (Follow-up)
