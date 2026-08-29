@@ -6,6 +6,10 @@
   "editor.codeActionsOnSave": ["source.fixAll.eslint"],
   "eslint.validate": ["javascript", "javascriptreact", "typescript", "vue"],
   "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "chat.tools.terminal.autoApprove": {
+    "pnpm typecheck": true,
+    "pnpm lint": true
+  },
   "search.exclude": {
     "dist/": true,
     ".quasar/": true,

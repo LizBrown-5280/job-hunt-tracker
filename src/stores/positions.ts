@@ -11,8 +11,18 @@ function createDraft(): PositionDraft {
     recruiterId: null,
     status: 'Open',
     workMode: 'On-site',
-    compensation: '',
+    location: '',
+    experienceLevel: '',
+    employmentType: 'Full Time',
+    entryType: 'Direct Hire',
+    compensationMin: '',
+    compensationMax: '',
+    benefits: [],
     link: '',
+    postingClosesAt: '',
+    source: '',
+    jobDescription: '',
+    favoriteRating: 0,
     notes: '',
   };
 }
@@ -72,8 +82,13 @@ export const usePositionsStore = defineStore('positions', {
         return [
           position.title,
           position.workMode,
-          position.compensation,
+          position.location,
+          position.experienceLevel,
+          position.compensationMin,
+          position.compensationMax,
+          position.source,
           position.notes,
+          position.jobDescription,
           position.link,
         ]
           .filter(Boolean)
@@ -100,8 +115,18 @@ export const usePositionsStore = defineStore('positions', {
         recruiterId: item.recruiterId,
         status: item.status,
         workMode: item.workMode,
-        compensation: item.compensation,
+        location: item.location ?? '',
+        experienceLevel: item.experienceLevel ?? '',
+        employmentType: item.employmentType ?? 'Full Time',
+        entryType: item.entryType ?? 'Direct Hire',
+        compensationMin: item.compensationMin ?? '',
+        compensationMax: item.compensationMax ?? '',
+        benefits: item.benefits ?? [],
         link: item.link,
+        postingClosesAt: item.postingClosesAt ?? '',
+        source: item.source ?? '',
+        jobDescription: item.jobDescription ?? '',
+        favoriteRating: item.favoriteRating ?? 0,
         notes: item.notes,
       };
     },
@@ -114,8 +139,18 @@ export const usePositionsStore = defineStore('positions', {
         recruiterId: this.draft.recruiterId,
         status: this.draft.status,
         workMode: this.draft.workMode,
-        compensation: this.draft.compensation.trim(),
+        location: this.draft.location.trim(),
+        experienceLevel: this.draft.experienceLevel.trim(),
+        employmentType: this.draft.employmentType,
+        entryType: this.draft.entryType,
+        compensationMin: this.draft.compensationMin.trim(),
+        compensationMax: this.draft.compensationMax.trim(),
+        benefits: this.draft.benefits,
         link: this.draft.link.trim(),
+        postingClosesAt: this.draft.postingClosesAt.trim(),
+        source: this.draft.source.trim(),
+        jobDescription: this.draft.jobDescription.trim(),
+        favoriteRating: this.draft.favoriteRating ?? 0,
         notes: this.draft.notes.trim(),
       };
 
@@ -187,6 +222,18 @@ export const usePositionsStore = defineStore('positions', {
       const now = new Date().toISOString();
       this.items = this.items.map((item) =>
         item.id === id ? { ...item, archivedAt: null, updatedAt: now } : item,
+      );
+      await persistPositions(this.items);
+    },
+
+    async toggleFavorite(item: PositionRecord, rating: number) {
+      const nextRating = item.favoriteRating === rating ? 0 : rating;
+      const now = new Date().toISOString();
+
+      this.items = this.items.map((current) =>
+        current.id === item.id
+          ? { ...current, favoriteRating: nextRating, updatedAt: now }
+          : current,
       );
       await persistPositions(this.items);
     },

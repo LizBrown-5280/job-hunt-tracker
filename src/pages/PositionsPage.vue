@@ -5,118 +5,258 @@
         <q-card class="q-pa-md">
           <div class="text-h6 q-mb-md">{{ editingId ? 'Edit position' : 'Add position' }}</div>
           <q-form @submit.prevent="submitPosition">
-            <q-input
-              v-model="store.draft.title"
-              label="Position title"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <div class="row q-col-gutter-sm items-center q-mb-sm">
-              <div class="col">
-                <q-select
-                  v-model="store.draft.companyId"
-                  :options="companyOptions"
-                  option-label="label"
-                  option-value="value"
-                  label="Company"
-                  filled
-                  dense
-                  emit-value
-                  map-options
-                  clearable
-                />
+            <section>
+              <div class="text-subtitle2 q-mb-xs">Position Details</div>
+              <q-input
+                v-model="store.draft.title"
+                label="Position title"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <div class="row q-col-gutter-sm items-center q-mb-sm">
+                <div class="col">
+                  <q-select
+                    v-model="store.draft.companyId"
+                    :options="companyOptions"
+                    option-label="label"
+                    option-value="value"
+                    label="Company"
+                    filled
+                    dense
+                    emit-value
+                    map-options
+                    clearable
+                  />
+                </div>
+                <div class="col-auto">
+                  <q-btn
+                    class="linked-add-btn"
+                    outline
+                    color="primary"
+                    size="sm"
+                    stack
+                    icon="business"
+                    label="Add New Company"
+                    @click="openCompaniesPage"
+                  />
+                </div>
               </div>
-              <div class="col-auto">
-                <q-btn
-                  class="linked-add-btn"
-                  outline
-                  color="primary"
-                  size="sm"
-                  icon="business"
-                  label="Add New Company"
-                  @click="openCompaniesPage"
-                />
+              <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
+                No companies yet. Create one to attach this position.
+                <template #action>
+                  <q-btn flat color="primary" label="Create company" @click="openCompaniesPage" />
+                </template>
+              </q-banner>
+              <div class="row q-col-gutter-sm items-center q-mb-sm">
+                <div class="col">
+                  <q-select
+                    v-model="store.draft.recruiterId"
+                    :options="recruiterOptions"
+                    option-label="label"
+                    option-value="value"
+                    label="Recruiter (optional)"
+                    filled
+                    dense
+                    emit-value
+                    map-options
+                    clearable
+                  />
+                </div>
+                <div class="col-auto">
+                  <q-btn
+                    class="linked-add-btn"
+                    outline
+                    color="primary"
+                    size="sm"
+                    stack
+                    icon="person_add"
+                    label="Add New Recruiter"
+                    @click="openRecruitersPage"
+                  />
+                </div>
               </div>
-            </div>
-            <q-banner v-if="!hasCompanies" dense rounded class="q-mb-sm warning-banner">
-              No companies yet. Create one to attach this position.
-              <template #action>
-                <q-btn flat color="primary" label="Create company" @click="openCompaniesPage" />
-              </template>
-            </q-banner>
-            <div class="row q-col-gutter-sm items-center q-mb-sm">
-              <div class="col">
-                <q-select
-                  v-model="store.draft.recruiterId"
-                  :options="recruiterOptions"
-                  option-label="label"
-                  option-value="value"
-                  label="Recruiter (optional)"
-                  filled
-                  dense
-                  emit-value
-                  map-options
-                  clearable
-                />
+              <q-banner v-if="!hasRecruiters" dense rounded class="q-mb-sm warning-banner">
+                No recruiting firms yet. Create one to attach this position.
+                <template #action>
+                  <q-btn
+                    flat
+                    color="primary"
+                    label="Create recruiting firm"
+                    @click="openRecruitersPage"
+                  />
+                </template>
+              </q-banner>
+              <q-select
+                v-model="sourceChoice"
+                :options="sourceSelectOptions"
+                label="Source"
+                filled
+                dense
+                clearable
+                class="q-mb-sm"
+              />
+              <q-input
+                v-if="sourceChoice === 'Other'"
+                v-model="sourceOtherText"
+                label="Other source"
+                placeholder="Enter source name"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Status</div>
+              <q-select
+                v-model="store.draft.status"
+                :options="statusOptions"
+                label="Status"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Application</div>
+              <q-input
+                v-model="store.draft.link"
+                label="Posting link"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <q-input
+                v-model="store.draft.postingClosesAt"
+                label="Posting closes"
+                type="date"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+              <q-input
+                v-model="store.draft.jobDescription"
+                type="textarea"
+                autogrow
+                filled
+                label="Job description"
+                placeholder="Paste the posting's responsibilities/qualifications here"
+                maxlength="5000"
+                counter
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Employment Arrangement</div>
+              <div class="text-caption text-grey-7 q-mb-xs">Employment type</div>
+              <q-option-group
+                v-model="store.draft.employmentType"
+                :options="employmentTypeOptions"
+                type="radio"
+                inline
+                dense
+                class="q-mb-sm"
+              />
+              <div class="text-caption text-grey-7 q-mb-xs">Entry type</div>
+              <q-option-group
+                v-model="store.draft.entryType"
+                :options="entryTypeOptions"
+                type="radio"
+                inline
+                dense
+                class="q-mb-sm"
+              />
+              <div class="text-caption text-grey-7 q-mb-xs">Work from</div>
+              <q-option-group
+                v-model="store.draft.workMode"
+                :options="workModeOptions"
+                type="radio"
+                inline
+                dense
+                class="q-mb-sm"
+              />
+              <q-input
+                v-model="store.draft.location"
+                label="Location"
+                placeholder="e.g. Denver, CO"
+                filled
+                dense
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Salary, Benefits & Perks</div>
+              <div class="row q-col-gutter-sm q-mb-sm">
+                <div class="col-6">
+                  <q-input
+                    v-model="store.draft.compensationMin"
+                    label="Compensation min"
+                    placeholder="e.g. $145,000"
+                    filled
+                    dense
+                    @blur="
+                      store.draft.compensationMin = formatCurrencyInput(store.draft.compensationMin)
+                    "
+                  />
+                </div>
+                <div class="col-6">
+                  <q-input
+                    v-model="store.draft.compensationMax"
+                    label="Compensation max"
+                    placeholder="e.g. $150,000"
+                    filled
+                    dense
+                    @blur="
+                      store.draft.compensationMax = formatCurrencyInput(store.draft.compensationMax)
+                    "
+                  />
+                </div>
               </div>
-              <div class="col-auto">
-                <q-btn
-                  class="linked-add-btn"
-                  outline
-                  color="primary"
-                  size="sm"
-                  icon="person_add"
-                  label="Add New Recruiter"
-                  @click="openRecruitersPage"
-                />
+              <div class="row items-center q-mb-xs">
+                <div class="text-caption text-grey-7">Benefits</div>
+                <q-space />
+                <div class="text-caption text-grey-7">{{ benefitsSelectedCount }}</div>
               </div>
-            </div>
-            <q-banner v-if="!hasRecruiters" dense rounded class="q-mb-sm warning-banner">
-              No recruiting firms yet. Create one to attach this position.
-              <template #action>
-                <q-btn
-                  flat
-                  color="primary"
-                  label="Create recruiting firm"
-                  @click="openRecruitersPage"
-                />
-              </template>
-            </q-banner>
-            <q-select
-              v-model="store.draft.status"
-              :options="statusOptions"
-              label="Status"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <q-select
-              v-model="store.draft.workMode"
-              :options="workModeOptions"
-              label="Work arrangement"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <q-input
-              v-model="store.draft.compensation"
-              label="Compensation"
-              filled
-              dense
-              class="q-mb-sm"
-            />
-            <q-input v-model="store.draft.link" label="Posting link" filled dense class="q-mb-sm" />
-            <q-input
-              v-model="store.draft.notes"
-              type="textarea"
-              autogrow
-              filled
-              label="Notes"
-              maxlength="500"
-              counter
-              class="q-mb-sm"
-            />
+              <q-option-group
+                v-model="store.draft.benefits"
+                :options="benefitOptions"
+                type="checkbox"
+                inline
+                dense
+                class="q-mb-sm benefits-option-group"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Skills Required</div>
+              <div class="text-caption text-grey-7 q-mb-xs">Experience level</div>
+              <q-option-group
+                v-model="store.draft.experienceLevel"
+                :options="experienceLevelOptions"
+                type="radio"
+                inline
+                dense
+                class="q-mb-sm"
+              />
+            </section>
+
+            <section class="form-section-spacing">
+              <div class="text-subtitle2 q-mb-xs">Additional Information</div>
+              <q-input
+                v-model="store.draft.notes"
+                type="textarea"
+                autogrow
+                filled
+                label="Notes (your thoughts on this position)"
+                maxlength="500"
+                counter
+                class="q-mb-sm"
+              />
+            </section>
 
             <div class="row q-gutter-sm">
               <q-btn
@@ -188,15 +328,32 @@
                     <div v-if="getDisplayRecruiter(item)" class="text-caption text-grey-7">
                       Recruiting firm: {{ getDisplayRecruiter(item) }}
                     </div>
-                    <div v-if="item.compensation" class="text-caption">{{ item.compensation }}</div>
+                    <div v-if="item.compensationMin || item.compensationMax" class="text-caption">
+                      {{ formatCompensationRange(item) }}
+                    </div>
                   </div>
-                  <q-chip :color="statusColor(item.status)" text-color="white">{{
-                    item.status
-                  }}</q-chip>
+                  <div class="column items-end q-gutter-xs">
+                    <q-chip :color="statusColor(item.status)" text-color="white">{{
+                      item.status
+                    }}</q-chip>
+                    <q-chip
+                      v-if="getClosingChip(item)"
+                      dense
+                      :color="getClosingChip(item)?.color"
+                      text-color="white"
+                    >
+                      {{ getClosingChip(item)?.label }}
+                    </q-chip>
+                  </div>
                 </div>
 
                 <div v-if="item.link" class="text-caption q-mt-xs text-primary">
                   {{ item.link }}
+                </div>
+                <div v-if="item.postingClosesAt || item.source" class="text-caption text-grey-7">
+                  <span v-if="item.postingClosesAt">Closes {{ item.postingClosesAt }}</span>
+                  <span v-if="item.postingClosesAt && item.source"> &middot; </span>
+                  <span v-if="item.source">Source: {{ item.source }}</span>
                 </div>
                 <div v-if="item.notes" class="text-caption text-grey-7 q-mt-sm notes-block">
                   {{ item.notes }}
@@ -255,6 +412,20 @@
                     @click="store.restore(item.id)"
                   />
                 </div>
+                <div class="row items-center heart-rating-row q-mt-xs">
+                  <q-btn
+                    v-for="heart in 5"
+                    :key="heart"
+                    flat
+                    round
+                    size="xs"
+                    padding="2px"
+                    class="heart-rating-btn"
+                    :color="heart <= (item.favoriteRating ?? 0) ? 'negative' : 'grey-5'"
+                    :icon="heart <= (item.favoriteRating ?? 0) ? 'favorite' : 'favorite_border'"
+                    @click.stop="store.toggleFavorite(item, heart)"
+                  />
+                </div>
               </q-card-section>
             </q-card>
           </div>
@@ -265,7 +436,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
@@ -282,7 +453,11 @@ import {
   returnFromHandoffWithId,
 } from '@/composables/navigationHandoff';
 import type {
+  PositionBenefit,
+  PositionEmploymentType,
+  PositionEntryType,
   PositionLinkHistoryEntry,
+  PositionRecord,
   PositionStatus,
   PositionWorkMode,
 } from '@/types/networking';
@@ -298,8 +473,153 @@ const { filteredItems, editingId } = storeToRefs(store);
 const statusOptions: PositionStatus[] = ['Open', 'Interviewing', 'On Hold', 'Closed'];
 const filterOptions: Array<PositionStatus | 'All'> = ['All', ...statusOptions];
 const archiveViewOptions: Array<'Active' | 'Archived' | 'All'> = ['Active', 'Archived', 'All'];
-const workModeOptions: PositionWorkMode[] = ['Remote', 'On-site', 'Hybrid'];
+const workModeOptions: Array<{ label: string; value: PositionWorkMode }> = [
+  { label: 'Remote', value: 'Remote' },
+  { label: 'Hybrid', value: 'Hybrid' },
+  { label: 'On-site', value: 'On-site' },
+];
+const employmentTypeOptions: Array<{ label: string; value: PositionEmploymentType }> = [
+  { label: 'Full Time', value: 'Full Time' },
+  { label: 'Contract-to-Hire', value: 'Contract-to-Hire' },
+  { label: 'Contract', value: 'Contract' },
+];
+const entryTypeOptions: Array<{ label: string; value: PositionEntryType }> = [
+  { label: 'Direct Hire', value: 'Direct Hire' },
+  { label: 'Recruiter', value: 'Recruiter' },
+];
+const benefitOptions: Array<{ label: string; value: PositionBenefit }> = [
+  { label: '401(k)', value: '401(k)' },
+  { label: 'Medical', value: 'Medical' },
+  { label: 'Vision', value: 'Vision' },
+  { label: 'Dental', value: 'Dental' },
+  { label: 'Life Insurance', value: 'Life Insurance' },
+  { label: 'Disability Insurance', value: 'Disability Insurance' },
+  { label: 'HSA/FSA', value: 'HSA/FSA' },
+  { label: 'PTO', value: 'PTO' },
+  { label: 'Unlimited PTO', value: 'Unlimited PTO' },
+  { label: 'Parental Leave', value: 'Parental Leave' },
+  { label: 'Bonuses', value: 'Bonuses' },
+  { label: 'Signing Bonus', value: 'Signing Bonus' },
+  { label: 'Stock Options', value: 'Stock Options' },
+  { label: 'Relocation Assistance', value: 'Relocation Assistance' },
+  { label: 'Remote Stipend', value: 'Remote Stipend' },
+  { label: 'Tuition Reimbursement', value: 'Tuition Reimbursement' },
+  { label: 'Wellness Program', value: 'Wellness Program' },
+  { label: 'Other', value: 'Other' },
+];
+const benefitsSelectedCount = computed(
+  () => `${store.draft.benefits.length}/${benefitOptions.length}`,
+);
+const experienceLevelYears = ['1', '2', '3', '5'];
+const experienceLevelOptions = computed(() =>
+  experienceLevelYears.map((years) => ({ label: `${years}+ years`, value: years })),
+);
+const knownSourceOptions = [
+  'Indeed',
+  'LinkedIn Jobs',
+  'Glassdoor',
+  'ZipRecruiter',
+  'Monster',
+  'CareerBuilder',
+  'SimplyHired',
+  'Snagajob (hourly jobs)',
+  'Dice (tech)',
+  'The Ladders (higher salaries)',
+  'Hired (tech recruiting platform)',
+  'FlexJobs (remote + flexible)',
+  'Remote.co',
+  'We Work Remotely',
+  'Working Nomads',
+  'Remotive',
+  'Jobspresso (remote/tech aggregate)',
+];
+const sourceSelectOptions = [...knownSourceOptions, 'Other'];
+const sourceChoice = ref('');
+const sourceOtherText = ref('');
 const POSITIONS_DRAFT_KEY = 'job-hunt-tracker-handoff-positions-draft-v1';
+
+watch(
+  () => store.draft,
+  () => {
+    const current = store.draft.source;
+
+    if (!current) {
+      sourceChoice.value = '';
+      sourceOtherText.value = '';
+    } else if (knownSourceOptions.includes(current)) {
+      sourceChoice.value = current;
+      sourceOtherText.value = '';
+    } else {
+      sourceChoice.value = 'Other';
+      sourceOtherText.value = current;
+    }
+  },
+  { immediate: true },
+);
+
+watch([sourceChoice, sourceOtherText], ([choice, otherText]) => {
+  store.draft.source = choice === 'Other' ? otherText.trim() : (choice ?? '');
+});
+
+watch(
+  () => store.draft.employmentType,
+  (employmentType) => {
+    if (employmentType === 'Contract-to-Hire' || employmentType === 'Contract') {
+      store.draft.entryType = 'Recruiter';
+    }
+  },
+);
+
+function formatCompensationRange(item: PositionRecord) {
+  if (item.compensationMin && item.compensationMax) {
+    return `${item.compensationMin} - ${item.compensationMax}`;
+  }
+
+  return item.compensationMin || item.compensationMax;
+}
+
+function getClosingChip(item: PositionRecord) {
+  if (!item.postingClosesAt) {
+    return null;
+  }
+
+  const closesAt = new Date(`${item.postingClosesAt}T00:00:00`);
+  if (Number.isNaN(closesAt.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((closesAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { label: `Closed ${Math.abs(diffDays)}d ago`, color: 'grey-6' };
+  }
+
+  if (diffDays === 0) {
+    return { label: 'Closes today', color: 'negative' };
+  }
+
+  if (diffDays <= 3) {
+    return { label: `Closes in ${diffDays}d`, color: 'negative' };
+  }
+
+  if (diffDays <= 7) {
+    return { label: `Closes in ${diffDays}d`, color: 'warning' };
+  }
+
+  return { label: `Closes in ${diffDays}d`, color: 'positive' };
+}
+
+function formatCurrencyInput(value: string) {
+  const numeric = value.replace(/[^0-9]/g, '');
+
+  if (!numeric) {
+    return '';
+  }
+
+  return `$${Number(numeric).toLocaleString('en-US')}`;
+}
 
 const companyOptions = computed(() =>
   companiesStore.activeItems
@@ -634,8 +954,44 @@ function clearDeepLinkQuery() {
   background: #fffbeb;
 }
 
+.heart-rating-row {
+  gap: 2px;
+}
+
+.heart-rating-btn {
+  min-width: 18px;
+  min-height: 18px;
+}
+
 .linked-add-btn {
-  min-width: 176px;
+  width: 160px;
   justify-content: center;
+}
+
+.linked-add-btn :deep(.q-btn__content) {
+  font-size: 0.74rem;
+  gap: 2px;
+}
+
+.linked-add-btn :deep(.q-icon) {
+  font-size: 1rem;
+}
+
+.benefits-option-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  column-gap: 8px;
+  row-gap: 4px;
+}
+
+.benefits-option-group :deep(.q-radio),
+.benefits-option-group :deep(.q-checkbox) {
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.benefits-option-group :deep(.q-radio__label),
+.benefits-option-group :deep(.q-checkbox__label) {
+  white-space: nowrap;
 }
 </style>

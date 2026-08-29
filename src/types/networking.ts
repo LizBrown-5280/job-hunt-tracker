@@ -43,6 +43,27 @@ export type CompanyRecord = {
 
 export type PositionStatus = 'Open' | 'Interviewing' | 'On Hold' | 'Closed';
 export type PositionWorkMode = 'Remote' | 'On-site' | 'Hybrid';
+export type PositionEmploymentType = 'Full Time' | 'Contract-to-Hire' | 'Contract';
+export type PositionEntryType = 'Direct Hire' | 'Recruiter';
+export type PositionBenefit =
+  | '401(k)'
+  | 'Medical'
+  | 'Vision'
+  | 'Dental'
+  | 'Life Insurance'
+  | 'Disability Insurance'
+  | 'HSA/FSA'
+  | 'PTO'
+  | 'Unlimited PTO'
+  | 'Parental Leave'
+  | 'Bonuses'
+  | 'Signing Bonus'
+  | 'Stock Options'
+  | 'Relocation Assistance'
+  | 'Remote Stipend'
+  | 'Tuition Reimbursement'
+  | 'Wellness Program'
+  | 'Other';
 
 export type PositionLinkHistoryEntry = {
   changedAt: string;
@@ -59,8 +80,18 @@ export type PositionRecord = {
   linkHistory: PositionLinkHistoryEntry[];
   status: PositionStatus;
   workMode: PositionWorkMode;
-  compensation: string;
+  location: string;
+  experienceLevel: string;
+  employmentType: PositionEmploymentType;
+  entryType: PositionEntryType;
+  compensationMin: string;
+  compensationMax: string;
+  benefits: PositionBenefit[];
   link: string;
+  postingClosesAt: string;
+  source: string;
+  jobDescription: string;
+  favoriteRating: number;
   notes: string;
   archivedAt?: string | null;
   createdAt: string;
