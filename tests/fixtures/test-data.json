@@ -1,0 +1,610 @@
+{
+  "version": 2,
+  "exportedAt": "2026-08-29T12:00:00.000Z",
+  "profile": {
+    "name": "Sample User"
+  },
+  "applications": [
+    {
+      "id": 1,
+      "company": "Northstar Labs",
+      "companyId": 1,
+      "role": "Senior Frontend Engineer",
+      "positionId": 1,
+      "recruiterId": 1,
+      "recruiterName": "Harbor Talent Partners",
+      "status": "Not Started",
+      "appliedDate": "",
+      "nextAction": "Tailor resume and submit application",
+      "notes": "Saw the posting on LinkedIn, still deciding whether to apply.",
+      "priority": "Medium",
+      "followUpDate": "2026-09-05",
+      "journeyEvents": [
+        {
+          "id": "journey-sample-1a",
+          "status": "Not Started",
+          "eventDate": "2026-08-25",
+          "note": "Found the posting, saved for later.",
+          "archivedAt": null,
+          "createdAt": "2026-08-25T09:00:00.000Z",
+          "updatedAt": "2026-08-25T09:00:00.000Z"
+        }
+      ],
+      "favoriteRating": 2,
+      "previousFavoriteRating": 0,
+      "favoriteUpdatedAt": "2026-08-25T09:00:00.000Z",
+      "archivedAt": null,
+      "createdAt": "2026-08-25T09:00:00.000Z",
+      "updatedAt": "2026-08-25T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "company": "Cedar Works",
+      "companyId": 2,
+      "role": "Product Engineer",
+      "positionId": 2,
+      "recruiterId": 2,
+      "recruiterName": "Summit Search Group",
+      "status": "Applied",
+      "appliedDate": "2026-08-22",
+      "nextAction": "Follow up with recruiting firm",
+      "notes": "Applied through Summit Search Group, waiting to hear back.",
+      "priority": "Medium",
+      "followUpDate": "2026-09-01",
+      "journeyEvents": [
+        {
+          "id": "journey-sample-2a",
+          "status": "Not Started",
+          "eventDate": "2026-08-19",
+          "note": "Recruiter reached out about the role.",
+          "archivedAt": null,
+          "createdAt": "2026-08-19T09:00:00.000Z",
+          "updatedAt": "2026-08-19T09:00:00.000Z"
+        },
+        {
+          "id": "journey-sample-2b",
+          "status": "Applied",
+          "eventDate": "2026-08-22",
+          "note": "Application submitted.",
+          "archivedAt": null,
+          "createdAt": "2026-08-22T09:00:00.000Z",
+          "updatedAt": "2026-08-22T09:00:00.000Z"
+        }
+      ],
+      "favoriteRating": 3,
+      "previousFavoriteRating": 0,
+      "favoriteUpdatedAt": "2026-08-22T09:00:00.000Z",
+      "archivedAt": null,
+      "createdAt": "2026-08-19T09:00:00.000Z",
+      "updatedAt": "2026-08-22T09:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "company": "Bluewave Analytics",
+      "companyId": 3,
+      "role": "Data Platform Engineer",
+      "positionId": 3,
+      "recruiterId": 3,
+      "recruiterName": "Crestline Recruiting",
+      "status": "Interview",
+      "appliedDate": "2026-08-10",
+      "nextAction": "Prepare for onsite technical interview",
+      "notes": "Two rounds completed, onsite scheduled next week.",
+      "priority": "High",
+      "followUpDate": "2026-09-03",
+      "journeyEvents": [
+        {
+          "id": "journey-sample-3a",
+          "status": "Not Started",
+          "eventDate": "2026-08-08",
+          "note": "Identified as a strong match on skills.",
+          "archivedAt": null,
+          "createdAt": "2026-08-08T09:00:00.000Z",
+          "updatedAt": "2026-08-08T09:00:00.000Z"
+        },
+        {
+          "id": "journey-sample-3b",
+          "status": "Applied",
+          "eventDate": "2026-08-10",
+          "note": "Application submitted directly on company site.",
+          "archivedAt": null,
+          "createdAt": "2026-08-10T09:00:00.000Z",
+          "updatedAt": "2026-08-10T09:00:00.000Z"
+        },
+        {
+          "id": "journey-sample-3c",
+          "status": "Interview",
+          "eventDate": "2026-08-24",
+          "note": "Completed phone screen, onsite scheduled.",
+          "archivedAt": null,
+          "createdAt": "2026-08-24T09:00:00.000Z",
+          "updatedAt": "2026-08-24T09:00:00.000Z"
+        }
+      ],
+      "favoriteRating": 4,
+      "previousFavoriteRating": 3,
+      "favoriteUpdatedAt": "2026-08-24T09:00:00.000Z",
+      "archivedAt": null,
+      "createdAt": "2026-08-08T09:00:00.000Z",
+      "updatedAt": "2026-08-24T09:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "company": "Fieldstone Robotics",
+      "companyId": 4,
+      "role": "Robotics Software Lead",
+      "positionId": 4,
+      "recruiterId": 4,
+      "recruiterName": "Alpine Executive Search",
+      "status": "Offer",
+      "appliedDate": "2026-07-28",
+      "nextAction": "Review offer terms and respond",
+      "notes": "Verbal offer received, written offer expected this week.",
+      "priority": "High",
+      "followUpDate": "2026-09-02",
+      "journeyEvents": [
+        {
+          "id": "journey-sample-4a",
+          "status": "Not Started",
+          "eventDate": "2026-07-25",
+          "note": "Alpine Executive Search reached out with the opportunity.",
+          "archivedAt": null,
+          "createdAt": "2026-07-25T09:00:00.000Z",
+          "updatedAt": "2026-07-25T09:00:00.000Z"
+        },
+        {
+          "id": "journey-sample-4b",
+          "status": "Applied",
+          "eventDate": "2026-07-28",
+          "note": "Submitted application with referral note.",
+          "archivedAt": null,
+          "createdAt": "2026-07-28T09:00:00.000Z",
+          "updatedAt": "2026-07-28T09:00:00.000Z"
+        },
+        {
+          "id": "journey-sample-4c",
+          "status": "Interview",
+          "eventDate": "2026-08-11",
+          "note": "Completed three rounds of interviews.",
+          "archivedAt": null,
+          "createdAt": "2026-08-11T09:00:00.000Z",
+          "updatedAt": "2026-08-11T09:00:00.000Z"
+        },
+        {
+          "id": "journey-sample-4d",
+          "status": "Offer",
+          "eventDate": "2026-08-27",
+          "note": "Verbal offer extended.",
+          "archivedAt": null,
+          "createdAt": "2026-08-27T09:00:00.000Z",
+          "updatedAt": "2026-08-27T09:00:00.000Z"
+        }
+      ],
+      "favoriteRating": 5,
+      "previousFavoriteRating": 4,
+      "favoriteUpdatedAt": "2026-08-27T09:00:00.000Z",
+      "archivedAt": null,
+      "createdAt": "2026-07-25T09:00:00.000Z",
+      "updatedAt": "2026-08-27T09:00:00.000Z"
+    }
+  ],
+  "companies": [
+    {
+      "id": 1,
+      "name": "Northstar Labs",
+      "website": "https://northstar.example.com",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/northstar-labs",
+      "industry": "Technology",
+      "size": "51–200",
+      "fundingStage": "Series A",
+      "status": "Active",
+      "importantNames": [
+        {
+          "name": "Jordan Lee",
+          "title": "VP of Engineering",
+          "category": "Hiring/Dept lead",
+          "notesConfidence": "Confirmed hiring contact"
+        }
+      ],
+      "street": "100 Market Street",
+      "city": "Denver",
+      "state": "CO",
+      "zip": "80202",
+      "phone": "303-555-0101",
+      "notes": "Sample company fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:00:00.000Z",
+      "updatedAt": "2026-08-25T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Cedar Works",
+      "website": "https://cedar.example.com",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/cedar-works",
+      "industry": "Software",
+      "size": "1–50",
+      "fundingStage": "Seed",
+      "status": "Active",
+      "importantNames": [],
+      "street": "200 Pine Avenue",
+      "city": "Boulder",
+      "state": "CO",
+      "zip": "80302",
+      "phone": "303-555-0102",
+      "notes": "Sample company fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:30:00.000Z",
+      "updatedAt": "2026-08-22T10:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "name": "Bluewave Analytics",
+      "website": "https://bluewave.example.com",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/bluewave-analytics",
+      "industry": "Data & Analytics",
+      "size": "201–1000",
+      "fundingStage": "Series B",
+      "status": "Active",
+      "importantNames": [
+        {
+          "name": "Priya Nair",
+          "title": "Director of Data Platform",
+          "category": "Hiring/Dept lead",
+          "notesConfidence": "Met at conference"
+        }
+      ],
+      "street": "500 Congress Avenue",
+      "city": "Austin",
+      "state": "TX",
+      "zip": "78701",
+      "phone": "512-555-0110",
+      "notes": "Sample company fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-08T09:00:00.000Z",
+      "updatedAt": "2026-08-24T09:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "name": "Fieldstone Robotics",
+      "website": "https://fieldstone.example.com",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/fieldstone-robotics",
+      "industry": "Robotics",
+      "size": "51–200",
+      "fundingStage": "Series C+",
+      "status": "Active",
+      "importantNames": [],
+      "street": "75 Foundry Row",
+      "city": "Boulder",
+      "state": "CO",
+      "zip": "80301",
+      "phone": "303-555-0199",
+      "notes": "Sample company fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-07-25T09:00:00.000Z",
+      "updatedAt": "2026-08-27T09:00:00.000Z"
+    }
+  ],
+  "positions": [
+    {
+      "id": 1,
+      "title": "Senior Frontend Engineer",
+      "companyId": 1,
+      "recruiterId": 1,
+      "linkHistory": [
+        {
+          "changedAt": "2026-08-18T09:00:00.000Z",
+          "companyId": 1,
+          "recruiterId": 1,
+          "reason": "initial"
+        }
+      ],
+      "status": "Open",
+      "workMode": "Remote",
+      "location": "Denver, CO",
+      "experienceLevel": "5",
+      "employmentType": "Full Time",
+      "entryType": "Direct Hire",
+      "compensationMin": "$150,000",
+      "compensationMax": "$175,000",
+      "benefits": ["401(k)", "Medical", "Dental", "Stock Options"],
+      "link": "https://northstar.example.com/jobs/frontend",
+      "postingClosesAt": "2026-09-15",
+      "source": "LinkedIn Jobs",
+      "jobDescription": "Own the frontend architecture for our core product, mentor mid-level engineers, and partner closely with design.",
+      "favoriteRating": 4,
+      "notes": "Sample position fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:00:00.000Z",
+      "updatedAt": "2026-08-25T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "title": "Product Engineer",
+      "companyId": 2,
+      "recruiterId": 2,
+      "linkHistory": [
+        {
+          "changedAt": "2026-08-18T09:30:00.000Z",
+          "companyId": 2,
+          "recruiterId": 2,
+          "reason": "initial"
+        }
+      ],
+      "status": "Interviewing",
+      "workMode": "Hybrid",
+      "location": "Boulder, CO",
+      "experienceLevel": "3",
+      "employmentType": "Contract-to-Hire",
+      "entryType": "Recruiter",
+      "compensationMin": "$130,000",
+      "compensationMax": "$155,000",
+      "benefits": ["Medical", "Vision", "PTO"],
+      "link": "https://cedar.example.com/jobs/product-engineer",
+      "postingClosesAt": "2026-09-05",
+      "source": "Indeed",
+      "jobDescription": "Full-stack product engineer role covering both API and UI work on a small, fast-moving team.",
+      "favoriteRating": 3,
+      "notes": "Sample position fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:30:00.000Z",
+      "updatedAt": "2026-08-22T10:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "title": "Data Platform Engineer",
+      "companyId": 3,
+      "recruiterId": 3,
+      "linkHistory": [
+        {
+          "changedAt": "2026-08-08T09:00:00.000Z",
+          "companyId": 3,
+          "recruiterId": 3,
+          "reason": "initial"
+        }
+      ],
+      "status": "Interviewing",
+      "workMode": "On-site",
+      "location": "Austin, TX",
+      "experienceLevel": "3",
+      "employmentType": "Full Time",
+      "entryType": "Direct Hire",
+      "compensationMin": "$140,000",
+      "compensationMax": "$165,000",
+      "benefits": ["401(k)", "Medical", "Bonuses", "Tuition Reimbursement"],
+      "link": "https://bluewave.example.com/careers/data-platform-engineer",
+      "postingClosesAt": "2026-09-01",
+      "source": "Dice (tech)",
+      "jobDescription": "Build and scale the internal data platform powering analytics products for enterprise customers.",
+      "favoriteRating": 4,
+      "notes": "Sample position fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-08T09:00:00.000Z",
+      "updatedAt": "2026-08-24T09:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "title": "Robotics Software Lead",
+      "companyId": 4,
+      "recruiterId": 4,
+      "linkHistory": [
+        {
+          "changedAt": "2026-07-25T09:00:00.000Z",
+          "companyId": 4,
+          "recruiterId": 4,
+          "reason": "initial"
+        }
+      ],
+      "status": "Closed",
+      "workMode": "Hybrid",
+      "location": "Boulder, CO",
+      "experienceLevel": "5",
+      "employmentType": "Full Time",
+      "entryType": "Direct Hire",
+      "compensationMin": "$170,000",
+      "compensationMax": "$195,000",
+      "benefits": ["401(k)", "Medical", "Vision", "Dental", "Stock Options", "Signing Bonus"],
+      "link": "https://fieldstone.example.com/careers/robotics-software-lead",
+      "postingClosesAt": "2026-08-20",
+      "source": "Referral",
+      "jobDescription": "Lead the software team building perception and controls software for next-generation field robots.",
+      "favoriteRating": 5,
+      "notes": "Sample position fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-07-25T09:00:00.000Z",
+      "updatedAt": "2026-08-27T09:00:00.000Z"
+    }
+  ],
+  "recruiters": [
+    {
+      "id": 1,
+      "name": "Harbor Talent Partners",
+      "companyId": 1,
+      "companyIds": [1],
+      "website": "https://harbor.example.com",
+      "industryFocus": ["Technology", "SaaS"],
+      "street": "300 Harbor Drive",
+      "city": "Denver",
+      "state": "CO",
+      "zip": "80203",
+      "phone": "303-555-0201",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/harbor-talent",
+      "contacts": [
+        {
+          "name": "Alex Morgan",
+          "title": "Senior Recruiter",
+          "phone": "303-555-0202",
+          "email": "alex@harbor.example.com",
+          "linkedinUrl": "https://www.linkedin.com/in/alex-morgan"
+        }
+      ],
+      "linkHistory": [
+        {
+          "changedAt": "2026-08-18T09:00:00.000Z",
+          "companyId": 1,
+          "reason": "initial"
+        }
+      ],
+      "relationship": "Active",
+      "notes": "Sample recruiter fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:00:00.000Z",
+      "updatedAt": "2026-08-25T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Summit Search Group",
+      "companyId": 2,
+      "companyIds": [2],
+      "website": "https://summit.example.com",
+      "industryFocus": ["Technology"],
+      "street": "400 Summit Road",
+      "city": "Boulder",
+      "state": "CO",
+      "zip": "80301",
+      "phone": "303-555-0203",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/summit-search",
+      "contacts": [
+        {
+          "name": "Taylor Brooks",
+          "title": "Recruiting Partner",
+          "phone": "303-555-0204",
+          "email": "taylor@summit.example.com",
+          "linkedinUrl": "https://www.linkedin.com/in/taylor-brooks"
+        }
+      ],
+      "linkHistory": [
+        {
+          "changedAt": "2026-08-18T09:30:00.000Z",
+          "companyId": 2,
+          "reason": "initial"
+        }
+      ],
+      "relationship": "Active",
+      "notes": "Sample recruiter fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:30:00.000Z",
+      "updatedAt": "2026-08-22T10:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "name": "Crestline Recruiting",
+      "companyId": 3,
+      "companyIds": [3],
+      "website": "https://crestline.example.com",
+      "industryFocus": ["Data & Analytics", "Technology"],
+      "street": "12 Crestline Court",
+      "city": "Austin",
+      "state": "TX",
+      "zip": "78702",
+      "phone": "512-555-0111",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/crestline-recruiting",
+      "contacts": [
+        {
+          "name": "Morgan Ellis",
+          "title": "Technical Recruiter",
+          "phone": "512-555-0112",
+          "email": "morgan@crestline.example.com",
+          "linkedinUrl": "https://www.linkedin.com/in/morgan-ellis"
+        }
+      ],
+      "linkHistory": [
+        {
+          "changedAt": "2026-08-08T09:00:00.000Z",
+          "companyId": 3,
+          "reason": "initial"
+        }
+      ],
+      "relationship": "Active",
+      "notes": "Sample recruiter fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-08-08T09:00:00.000Z",
+      "updatedAt": "2026-08-24T09:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "name": "Alpine Executive Search",
+      "companyId": 4,
+      "companyIds": [4],
+      "website": "https://alpineexec.example.com",
+      "industryFocus": ["Robotics", "Engineering Leadership"],
+      "street": "9 Alpine Way",
+      "city": "Boulder",
+      "state": "CO",
+      "zip": "80302",
+      "phone": "303-555-0210",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/alpine-executive-search",
+      "contacts": [
+        {
+          "name": "Sam Reyes",
+          "title": "Executive Recruiter",
+          "phone": "303-555-0211",
+          "email": "sam@alpineexec.example.com",
+          "linkedinUrl": "https://www.linkedin.com/in/sam-reyes"
+        }
+      ],
+      "linkHistory": [
+        {
+          "changedAt": "2026-07-25T09:00:00.000Z",
+          "companyId": 4,
+          "reason": "initial"
+        }
+      ],
+      "relationship": "Active",
+      "notes": "Sample recruiter fixture.",
+      "archivedAt": null,
+      "createdAt": "2026-07-25T09:00:00.000Z",
+      "updatedAt": "2026-08-27T09:00:00.000Z"
+    }
+  ],
+  "interviewQuestionCategories": [
+    {
+      "id": "sample-frontend",
+      "name": "Sample Frontend",
+      "parentCategoryId": null,
+      "source": "user",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:00:00.000Z",
+      "updatedAt": "2026-08-18T09:00:00.000Z"
+    }
+  ],
+  "interviewQuestions": [
+    {
+      "id": "sample-question-1",
+      "categoryId": "sample-frontend",
+      "difficulty": "Medium",
+      "questionText": "Explain how you would test a shared form component.",
+      "modelAnswer": "Cover component behavior, integration, persistence, and edge cases.",
+      "tips": ["Mention focused tests", "Mention linked data"],
+      "tags": ["testing", "frontend"],
+      "source": "user",
+      "archivedAt": null,
+      "createdAt": "2026-08-18T09:00:00.000Z",
+      "updatedAt": "2026-08-18T09:00:00.000Z"
+    }
+  ],
+  "interviewPracticeSessions": [
+    {
+      "id": "sample-session-1",
+      "categoryId": "sample-frontend",
+      "questionIds": ["sample-question-1"],
+      "currentStep": 0,
+      "reflectionNote": "Sample practice session.",
+      "startedAt": "2026-08-25T09:00:00.000Z",
+      "finishedAt": null,
+      "createdAt": "2026-08-25T09:00:00.000Z",
+      "updatedAt": "2026-08-25T09:00:00.000Z"
+    }
+  ],
+  "interviewResponses": [
+    {
+      "id": "sample-session-1:sample-question-1",
+      "sessionId": "sample-session-1",
+      "questionId": "sample-question-1",
+      "responseText": "I would test the shared fields, both industry modes, persistence, and linked-record behavior.",
+      "rating": 4,
+      "reviewTag": "favorite",
+      "createdAt": "2026-08-25T09:05:00.000Z",
+      "updatedAt": "2026-08-25T09:05:00.000Z"
+    }
+  ]
+}

@@ -9,6 +9,7 @@
   "chat.tools.terminal.autoApprove": {
     "pnpm typecheck": true,
     "pnpm lint": true,
+    "pnpm lint:check": true,
     "firebase": true,
     "gcloud": true,
     "pnpm": true

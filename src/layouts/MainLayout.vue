@@ -117,22 +117,31 @@
 
         <q-card-section class="q-pt-none">
           <div class="text-body2 q-mb-sm">Run maintenance and reliability checks.</div>
-          <q-btn
-            color="accent"
-            icon="fact_check"
-            label="Run core flow health check"
-            :loading="isRunningHealthCheck"
-            @click="runHealthCheck"
-          />
-          <q-btn
-            class="q-ml-sm"
-            color="negative"
-            outline
-            icon="delete_sweep"
-            label="Clear local data"
-            :loading="isClearingLocalData"
-            @click="confirmClearLocalData"
-          />
+          <div class="column items-start q-gutter-sm">
+            <q-btn
+              color="accent"
+              icon="fact_check"
+              label="Run core flow health check"
+              :loading="isRunningHealthCheck"
+              @click="runHealthCheck"
+            />
+            <q-btn
+              color="secondary"
+              outline
+              icon="dataset"
+              label="Load sample data"
+              :loading="isLoadingSampleData"
+              @click="confirmLoadSampleData"
+            />
+            <q-btn
+              color="negative"
+              outline
+              icon="delete_sweep"
+              label="Clear local data"
+              :loading="isClearingLocalData"
+              @click="confirmClearLocalData"
+            />
+          </div>
           <q-banner
             v-if="devStatus"
             dense
@@ -154,6 +163,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
+import sampleTestData from '../../tests/fixtures/test-data.json';
 
 const route = useRoute();
 const router = useRouter();
@@ -174,6 +184,7 @@ const backupStatus = ref<{ type: 'positive' | 'negative'; message: string } | nu
 const devStatus = ref<{ type: 'positive' | 'negative'; message: string } | null>(null);
 const isRunningHealthCheck = ref(false);
 const isClearingLocalData = ref(false);
+const isLoadingSampleData = ref(false);
 const showDevToolsButton = computed(() => route.query.preview === 'dev');
 
 function toggleLeftDrawer() {
@@ -217,6 +228,45 @@ async function runHealthCheck() {
     message: `Health check failed: ${result.error ?? 'Unknown error.'}`,
   };
   notifyUser('negative', 'Core flow health check failed.');
+}
+
+async function confirmLoadSampleData() {
+  const confirmed = await new Promise<boolean>((resolve) => {
+    $q.dialog({
+      title: 'Load sample data',
+      message:
+        'This replaces all locally stored companies, positions, recruiters, applications, and interview data with a sample dataset (4 journeys across different stages). Continue?',
+      ok: { label: 'Load sample data', color: 'secondary' },
+      cancel: { label: 'Cancel', flat: true },
+      persistent: true,
+    })
+      .onOk(() => resolve(true))
+      .onCancel(() => resolve(false))
+      .onDismiss(() => resolve(false));
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  isLoadingSampleData.value = true;
+  try {
+    await store.importBackup(JSON.stringify(sampleTestData));
+    devStatus.value = {
+      type: 'positive',
+      message: 'Sample data loaded.',
+    };
+    notifyUser('positive', 'Sample data loaded.');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to load sample data.';
+    devStatus.value = {
+      type: 'negative',
+      message: `Load failed: ${message}`,
+    };
+    notifyUser('negative', message);
+  } finally {
+    isLoadingSampleData.value = false;
+  }
 }
 
 async function confirmClearLocalData() {
