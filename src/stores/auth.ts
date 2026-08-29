@@ -17,11 +17,17 @@ interface AuthState {
   user: User | null;
   errorMessage: string;
   initialized: boolean;
+  isAdmin: boolean;
 }
 
-async function isEmailAuthorized(email: string): Promise<boolean> {
+async function getAuthorization(email: string): Promise<{ authorized: boolean; isAdmin: boolean }> {
   const snapshot = await getDoc(doc(firestore, 'authorizedUsers', email.toLowerCase()));
-  return snapshot.exists();
+
+  if (!snapshot.exists()) {
+    return { authorized: false, isAdmin: false };
+  }
+
+  return { authorized: true, isAdmin: snapshot.data().isAdmin === true };
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -30,6 +36,7 @@ export const useAuthStore = defineStore('auth', {
     user: null,
     errorMessage: '',
     initialized: false,
+    isAdmin: false,
   }),
 
   getters: {
@@ -64,7 +71,8 @@ export const useAuthStore = defineStore('auth', {
       }
 
       try {
-        const authorized = await isEmailAuthorized(user.email);
+        const { authorized, isAdmin } = await getAuthorization(user.email);
+        this.isAdmin = isAdmin;
         this.status = authorized ? 'authorized' : 'unauthorized';
       } catch (error) {
         console.error('[auth] allowlist check failed', error);

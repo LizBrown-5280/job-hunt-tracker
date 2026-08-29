@@ -185,7 +185,7 @@ const devStatus = ref<{ type: 'positive' | 'negative'; message: string } | null>
 const isRunningHealthCheck = ref(false);
 const isClearingLocalData = ref(false);
 const isLoadingSampleData = ref(false);
-const showDevToolsButton = computed(() => route.query.preview === 'dev');
+const showDevToolsButton = computed(() => route.query.preview === 'dev' || authStore.isAdmin);
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
