@@ -27,3 +27,7 @@ yarn-error.log*
 
 # Firebase local deploy metadata
 .firebase/
+
+# PWA related files
+/src-pwa/pnpm-workspace.yaml
+/src-pwa/pnpm-lock.yaml

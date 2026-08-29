@@ -21,13 +21,24 @@ interface AuthState {
 }
 
 async function getAuthorization(email: string): Promise<{ authorized: boolean; isAdmin: boolean }> {
-  const snapshot = await getDoc(doc(firestore, 'authorizedUsers', email.toLowerCase()));
+  try {
+    const snapshot = await getDoc(doc(firestore, 'authorizedUsers', email.toLowerCase()));
 
-  if (!snapshot.exists()) {
-    return { authorized: false, isAdmin: false };
+    if (!snapshot.exists()) {
+      return { authorized: false, isAdmin: false };
+    }
+
+    return { authorized: true, isAdmin: snapshot.data().isAdmin === true };
+  } catch (error) {
+    // Firestore unreachable (offline). Fall back to cached values.
+    const cachedAuth = localStorage.getItem(`auth_authorized_${email.toLowerCase()}`);
+    const cachedAdmin = localStorage.getItem(`auth_isAdmin_${email.toLowerCase()}`);
+    if (cachedAuth === 'true') {
+      return { authorized: true, isAdmin: cachedAdmin === 'true' };
+    }
+    // Re-throw if no cache hit, so caller can handle the error
+    throw error;
   }
-
-  return { authorized: true, isAdmin: snapshot.data().isAdmin === true };
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -74,6 +85,11 @@ export const useAuthStore = defineStore('auth', {
         const { authorized, isAdmin } = await getAuthorization(user.email);
         this.isAdmin = isAdmin;
         this.status = authorized ? 'authorized' : 'unauthorized';
+        // Cache the authorization result for offline use
+        if (authorized) {
+          localStorage.setItem(`auth_authorized_${user.email.toLowerCase()}`, 'true');
+          localStorage.setItem(`auth_isAdmin_${user.email.toLowerCase()}`, isAdmin ? 'true' : 'false');
+        }
       } catch (error) {
         console.error('[auth] allowlist check failed', error);
         this.status = 'error';
