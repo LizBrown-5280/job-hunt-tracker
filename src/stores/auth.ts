@@ -88,7 +88,10 @@ export const useAuthStore = defineStore('auth', {
         // Cache the authorization result for offline use
         if (authorized) {
           localStorage.setItem(`auth_authorized_${user.email.toLowerCase()}`, 'true');
-          localStorage.setItem(`auth_isAdmin_${user.email.toLowerCase()}`, isAdmin ? 'true' : 'false');
+          localStorage.setItem(
+            `auth_isAdmin_${user.email.toLowerCase()}`,
+            isAdmin ? 'true' : 'false',
+          );
         }
       } catch (error) {
         console.error('[auth] allowlist check failed', error);
