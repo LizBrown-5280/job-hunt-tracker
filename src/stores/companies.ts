@@ -141,7 +141,6 @@ export const useCompaniesStore = defineStore('companies', {
         notes: item.notes,
       };
     },
-
     async save() {
       const now = new Date().toISOString();
       const payload = {
@@ -168,31 +167,100 @@ export const useCompaniesStore = defineStore('companies', {
         notes: this.draft.notes.trim(),
       };
 
-      if (!payload.name) {
-        return;
-      }
+      if (!payload.name) return null; // Return null if invalid
 
       if (this.editingId !== null) {
-        this.items = this.items.map((item) =>
-          item.id === this.editingId ? { ...item, ...payload, updatedAt: now } : item,
-        );
-        await persistCompanies(this.items);
+        const updatedItem = {
+          ...this.items.find((i) => i.id === this.editingId),
+          ...payload,
+          updatedAt: now,
+        } as CompanyRecord;
+
+        // Surgical update in DB
+        await db.companies.put(updatedItem);
+
+        this.items = this.items.map((item) => (item.id === this.editingId ? updatedItem : item));
+        const savedId = this.editingId;
         this.resetDraft();
-        return;
+        return savedId; // Return the ID so the view knows exactly what it was
+      }
+
+      // Check if duplicate company name exists before creating a new one
+      const isDuplicate = this.items.some(
+        (item) => item.name.toLowerCase() === payload.name.toLowerCase(),
+      );
+      if (isDuplicate) {
+        throw new Error('A company with this name already exists.');
       }
 
       const nextId = this.items.length ? Math.max(...this.items.map((item) => item.id)) + 1 : 1;
-      this.items.unshift({
+      const newCompany: CompanyRecord = {
         id: nextId,
         ...payload,
         archivedAt: null,
         createdAt: now,
         updatedAt: now,
-      });
+      };
 
-      await persistCompanies(this.items);
+      // Surgical insert in DB
+      await db.companies.put(newCompany);
+
+      this.items.unshift(newCompany);
       this.resetDraft();
+      return nextId; // Return the new ID
     },
+
+    // async save() {
+    //   const now = new Date().toISOString();
+    //   const payload = {
+    //     name: this.draft.name.trim(),
+    //     website: this.draft.website.trim(),
+    //     companyLinkedinUrl: this.draft.companyLinkedinUrl.trim(),
+    //     industry: this.draft.industry.trim(),
+    //     size: this.draft.size,
+    //     fundingStage: this.draft.fundingStage,
+    //     status: this.draft.status,
+    //     importantNames: this.draft.importantNames
+    //       .map((item) => ({
+    //         name: item.name.trim(),
+    //         title: item.title.trim(),
+    //         category: item.category,
+    //         notesConfidence: item.notesConfidence.trim().slice(0, 100),
+    //       }))
+    //       .filter((item) => item.name),
+    //     street: this.draft.street.trim(),
+    //     city: this.draft.city.trim(),
+    //     state: this.draft.state.trim(),
+    //     zip: this.draft.zip.trim(),
+    //     phone: this.draft.phone.trim(),
+    //     notes: this.draft.notes.trim(),
+    //   };
+
+    //   if (!payload.name) {
+    //     return;
+    //   }
+
+    //   if (this.editingId !== null) {
+    //     this.items = this.items.map((item) =>
+    //       item.id === this.editingId ? { ...item, ...payload, updatedAt: now } : item,
+    //     );
+    //     await persistCompanies(this.items);
+    //     this.resetDraft();
+    //     return;
+    //   }
+
+    //   const nextId = this.items.length ? Math.max(...this.items.map((item) => item.id)) + 1 : 1;
+    //   this.items.unshift({
+    //     id: nextId,
+    //     ...payload,
+    //     archivedAt: null,
+    //     createdAt: now,
+    //     updatedAt: now,
+    //   });
+
+    //   await persistCompanies(this.items);
+    //   this.resetDraft();
+    // },
 
     async remove(id: number) {
       const now = new Date().toISOString();

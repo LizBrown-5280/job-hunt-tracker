@@ -1,17 +1,16 @@
 ---
-id: 'clicking-company-save-bugs-2026-09-10'
-status: 'todo'
-priority: 'critical'
+id: "clicking-company-save-bugs-2026-09-10"
+status: "done"
+priority: "critical"
 assignee: null
 epic: null
 dueDate: null
-created: '2026-09-10T16:15:37.902Z'
-modified: '2026-09-11T18:08:39.820Z'
-completedAt: null
+created: "2026-09-10T16:15:37.902Z"
+modified: "2026-09-11T20:27:09.785Z"
+completedAt: "2026-09-11T20:27:09.785Z"
 labels: []
-order: 'a0'
+order: "Zz"
 ---
-
 # BUG - Clicking Company Save Bugs
 
 ## A/C:

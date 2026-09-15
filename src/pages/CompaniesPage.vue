@@ -209,6 +209,7 @@
               <q-btn
                 color="primary"
                 type="submit"
+                :loading="isSubmitting"
                 :label="editingId ? 'Save changes' : 'Save company'"
               />
               <q-btn
@@ -464,6 +465,7 @@ const fundingStageOptions = [
 const companyStatusOptions = ['Active', 'Acquired', 'IPO', 'Closed', 'Unknown'];
 const archiveViewOptions: Array<'Active' | 'Archived' | 'All'> = ['Active', 'Archived', 'All'];
 const recruiterRelationshipRows = ref<Array<{ rowId: number; recruiterId: number | null }>>([]);
+const isSubmitting = ref(false);
 
 const recruiterOptions = computed(() =>
   recruitersStore.activeItems
@@ -709,35 +711,83 @@ onMounted(async () => {
   await applicationsStore.init();
 });
 
+// async function submitCompany() {
+//   const currentEditingId = editingId.value;
+//   const existingIds = new Set(store.items.map((item) => item.id));
+//   const recruiterIdsToLink = getSelectedRecruiterIds();
+//   const nextName = store.draft.name.trim();
+//   const previousName =
+//     currentEditingId != null
+//       ? (store.items.find((item) => item.id === currentEditingId)?.name.trim() ?? '')
+//       : '';
+
+//   await store.save();
+//   const savedCompanyId =
+//     currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
+
+//   if (savedCompanyId != null) {
+//     await Promise.all(
+//       recruiterIdsToLink.map((recruiterId) =>
+//         recruitersStore.addCompanyReference(recruiterId, savedCompanyId, 'updated'),
+//       ),
+//     );
+//   }
+
+//   recruiterRelationshipRows.value = [];
+
+//   if (currentEditingId != null && nextName && nextName !== previousName) {
+//     await applicationsStore.syncCompanyNameReferences(currentEditingId, nextName);
+//   }
+
+//   returnFromHandoff(savedCompanyId);
+// }
+
 async function submitCompany() {
-  const currentEditingId = editingId.value;
-  const existingIds = new Set(store.items.map((item) => item.id));
-  const recruiterIdsToLink = getSelectedRecruiterIds();
+  if (isSubmitting.value) return;
+
   const nextName = store.draft.name.trim();
-  const previousName =
-    currentEditingId != null
-      ? (store.items.find((item) => item.id === currentEditingId)?.name.trim() ?? '')
-      : '';
-
-  await store.save();
-  const savedCompanyId =
-    currentEditingId ?? store.items.find((item) => !existingIds.has(item.id))?.id ?? null;
-
-  if (savedCompanyId != null) {
-    await Promise.all(
-      recruiterIdsToLink.map((recruiterId) =>
-        recruitersStore.addCompanyReference(recruiterId, savedCompanyId, 'updated'),
-      ),
-    );
+  if (!nextName) {
+    $q.notify({ type: 'warning', message: 'Company name is required.' });
+    return;
   }
 
-  recruiterRelationshipRows.value = [];
+  try {
+    isSubmitting.value = true;
+    const currentEditingId = editingId.value;
+    const recruiterIdsToLink = getSelectedRecruiterIds();
+    const previousName =
+      currentEditingId != null
+        ? (store.items.find((item) => item.id === currentEditingId)?.name.trim() ?? '')
+        : '';
 
-  if (currentEditingId != null && nextName && nextName !== previousName) {
-    await applicationsStore.syncCompanyNameReferences(currentEditingId, nextName);
+    // Capture the ID directly returned by our updated store save action
+    const savedCompanyId = await store.save();
+
+    if (savedCompanyId != null) {
+      await Promise.all(
+        recruiterIdsToLink.map((recruiterId) =>
+          recruitersStore.addCompanyReference(recruiterId, savedCompanyId, 'updated'),
+        ),
+      );
+    }
+
+    recruiterRelationshipRows.value = [];
+
+    if (currentEditingId != null && nextName && nextName !== previousName) {
+      await applicationsStore.syncCompanyNameReferences(currentEditingId, nextName);
+    }
+
+    // Now this has a guaranteed valid ID to handle the routing handoff
+    returnFromHandoff(savedCompanyId);
+  } catch (error) {
+    const err = error as Error;
+    $q.notify({
+      type: 'negative',
+      message: err.message || 'An error occurred while saving the company.',
+    });
+  } finally {
+    isSubmitting.value = false;
   }
-
-  returnFromHandoff(savedCompanyId);
 }
 
 function startEditCompany(item: (typeof store.items)[number]) {
