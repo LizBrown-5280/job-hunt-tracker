@@ -1,6 +1,6 @@
 {
   "name": "job-hunt-tracker",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Local-first job hunt tracker PWA built with Vue 3, Quasar, Dexie/IndexedDB, and Pinia.",
   "productName": "Job Hunt Tracker",
   "author": "LizBrown-5280 <>",

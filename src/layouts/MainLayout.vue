@@ -106,6 +106,9 @@
           <q-btn flat label="Cancel" @click="showSettings = false" />
           <q-btn color="primary" label="Save" @click="saveProfile" />
         </q-card-actions>
+        <q-card-section class="q-pt-none text-caption text-grey-7">
+          Version: {{ appVersion }}
+        </q-card-section>
       </q-card>
     </q-dialog>
 
@@ -164,6 +167,7 @@ import { useQuasar } from 'quasar';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
 import sampleTestData from '../../tests/fixtures/test-data.json';
+import { version as appVersion } from '../../package.json';
 
 const route = useRoute();
 const router = useRouter();
