@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { db } from '@/db/database';
+import { db, toPersisted } from '@/db/database';
 import type { CompanyRecord, CompanyImportantName } from '@/types/networking';
 
 type ImportantNameDraft = CompanyImportantName & { rowId: number };
@@ -51,7 +51,7 @@ async function loadCompanies(): Promise<CompanyRecord[]> {
 async function persistCompanies(items: CompanyRecord[]) {
   await db.transaction('rw', db.companies, async () => {
     await db.companies.clear();
-    await db.companies.bulkPut(items);
+    await db.companies.bulkPut(toPersisted(items));
   });
 }
 

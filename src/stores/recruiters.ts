@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { db } from '@/db/database';
+import { db, toPersisted } from '@/db/database';
 import type { RecruiterContact, RecruiterRecord } from '@/types/networking';
 import { useApplicationsStore } from '@/stores/applications';
 
@@ -54,7 +54,7 @@ async function loadRecruiters(): Promise<RecruiterRecord[]> {
 async function persistRecruiters(items: RecruiterRecord[]) {
   await db.transaction('rw', db.recruiters, async () => {
     await db.recruiters.clear();
-    await db.recruiters.bulkPut(items);
+    await db.recruiters.bulkPut(toPersisted(items));
   });
 }
 

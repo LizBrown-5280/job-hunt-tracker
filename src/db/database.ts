@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { toRaw } from 'vue';
 import type { ApplicationRecord } from '@/types/applications';
 import type {
   InterviewPracticeSessionRecord,
@@ -35,3 +36,7 @@ export class JobHuntDatabase extends Dexie {
 }
 
 export const db = new JobHuntDatabase();
+
+export function toPersisted<T>(value: T): T {
+  return JSON.parse(JSON.stringify(toRaw(value))) as T;
+}

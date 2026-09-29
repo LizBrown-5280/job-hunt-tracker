@@ -155,6 +155,7 @@ async function run() {
       localStorage.removeItem('job-hunt-tracker-profile-v1');
       localStorage.removeItem('job-hunt-tracker-applications-backup-meta-v1');
       sessionStorage.clear();
+      sessionStorage.setItem('job-hunt-tracker-local-smoke-mode', 'true');
 
       const req = indexedDB.deleteDatabase('job-hunt-tracker');
       await new Promise((resolve) => {

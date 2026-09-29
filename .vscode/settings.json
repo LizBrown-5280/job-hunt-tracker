@@ -12,7 +12,11 @@
     "pnpm lint:check": true,
     "firebase": true,
     "gcloud": true,
-    "pnpm": true
+    "pnpm": true,
+    "/^pnpm typecheck && pnpm lint:check && node scripts/reliability-smoke\\.mjs$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   },
   "search.exclude": {
     "dist/": true,

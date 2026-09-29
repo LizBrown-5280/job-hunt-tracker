@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { db } from '@/db/database';
+import { db, toPersisted } from '@/db/database';
 import type { PositionRecord } from '@/types/networking';
 
 type PositionDraft = Omit<PositionRecord, 'id' | 'createdAt' | 'updatedAt' | 'linkHistory'>;
@@ -34,7 +34,7 @@ async function loadPositions(): Promise<PositionRecord[]> {
 async function persistPositions(items: PositionRecord[]) {
   await db.transaction('rw', db.positions, async () => {
     await db.positions.clear();
-    await db.positions.bulkPut(items);
+    await db.positions.bulkPut(toPersisted(items));
   });
 }
 

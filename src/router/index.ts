@@ -9,6 +9,8 @@ import {
 import routes from './routes';
 import { useAuthStore } from '@/stores/auth';
 
+const LOCAL_SMOKE_MODE_KEY = 'job-hunt-tracker-local-smoke-mode';
+
 /*
  * If not building with SSR mode, you can
  * directly export the Router instantiation;
@@ -36,6 +38,15 @@ export default defineRouter((/* { store, ssrContext } */) => {
   });
 
   Router.beforeEach(async (to) => {
+    if (
+      typeof window !== 'undefined' &&
+      ['localhost', '127.0.0.1'].includes(window.location.hostname) &&
+      (window.location.hash.includes('preview=dev') ||
+        window.sessionStorage.getItem(LOCAL_SMOKE_MODE_KEY) === 'true')
+    ) {
+      return true;
+    }
+
     const authStore = useAuthStore();
     await authStore.init();
 
